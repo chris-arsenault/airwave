@@ -113,6 +113,11 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
     // (artist_name, album_name) -> album_id
     let mut album_ids: BTreeMap<(String, String), ObjectId> = BTreeMap::new();
 
+    let mut files_scanned: u64 = 0;
+    let mut files_failed: u64 = 0;
+
+    info!("Library scan starting: {:?}", music_dirs);
+
     for dir in music_dirs {
         if !dir.exists() {
             warn!("Music directory does not exist: {}", dir.display());
@@ -127,9 +132,23 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
                 continue;
             }
             let path = entry.path();
+            let mime = mime_guess::from_path(path)
+                .first()
+                .map(|m| m.to_string())
+                .unwrap_or_default();
+            if !mime.starts_with("audio/") {
+                continue;
+            }
+            files_scanned += 1;
+            if files_scanned.is_multiple_of(1000) {
+                info!("Scanning: {} files processed so far...", files_scanned);
+            }
             let meta = match metadata::extract_metadata(path) {
                 Some(m) => m,
-                None => continue,
+                None => {
+                    files_failed += 1;
+                    continue;
+                }
             };
 
             // Ensure artist container exists
@@ -202,11 +221,15 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
     }
 
     info!(
-        "Library scan complete: {} tracks, {} artists, {} albums",
+        "Library scan complete: {} tracks, {} artists, {} albums ({} files scanned)",
         lib.total_tracks,
         artist_ids.len(),
-        album_ids.len()
+        album_ids.len(),
+        files_scanned
     );
+    if files_failed > 0 {
+        warn!("{} audio files failed metadata extraction", files_failed);
+    }
     lib
 }
 
