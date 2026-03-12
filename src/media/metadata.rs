@@ -1,5 +1,5 @@
 use lofty::file::{AudioFile, TaggedFileExt};
-use lofty::tag::Accessor;
+use lofty::tag::{Accessor, ItemKey};
 use std::path::Path;
 use std::time::Duration;
 
@@ -57,7 +57,7 @@ pub fn extract_metadata(path: &Path) -> Option<TrackMetadata> {
         .unwrap_or_else(|| "Unknown Album".to_string());
 
     let album_artist = tag
-        .and_then(|t| t.artist().map(|s| s.to_string()))
+        .and_then(|t| t.get_string(&ItemKey::AlbumArtist).map(|s| s.to_string()))
         .unwrap_or_else(|| artist.clone());
 
     let track_number = tag.and_then(|t| t.track());

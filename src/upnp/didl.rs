@@ -38,7 +38,7 @@ impl DidlWriter {
         self.writer.write_event(Event::Start(el)).unwrap();
 
         self.write_text_element("dc:title", &container.title);
-        self.write_text_element("upnp:class", "object.container.storageFolder");
+        self.write_text_element("upnp:class", container.upnp_class);
 
         self.writer
             .write_event(Event::End(BytesEnd::new("container")))

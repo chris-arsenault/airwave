@@ -208,6 +208,7 @@ mod content_directory_scpd {
 
         for required in &[
             "Browse",
+            "Search",
             "GetSearchCapabilities",
             "GetSortCapabilities",
             "GetSystemUpdateID",
@@ -530,6 +531,7 @@ mod didl_lite {
             title: "Test Artist".to_string(),
             children: vec!["al1".to_string()],
             child_count: 1,
+            upnp_class: "object.container.person.musicArtist",
         }
     }
 
@@ -604,7 +606,7 @@ mod didl_lite {
         assert_eq!(element_text(&doc, "title"), "Test Artist");
         assert_eq!(
             element_text(&doc, "class"),
-            "object.container.storageFolder"
+            "object.container.person.musicArtist"
         );
     }
 
@@ -844,8 +846,9 @@ mod library {
     }
 
     #[test]
-    fn children_of_root_on_empty_library() {
+    fn children_of_root_has_virtual_containers() {
         let lib = library::Library::new();
-        assert_eq!(lib.children_of("0").len(), 0);
+        let children = lib.children_of("0");
+        assert_eq!(children.len(), 4);
     }
 }
