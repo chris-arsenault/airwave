@@ -1,0 +1,12 @@
+[network]
+# Override the advertised IP for container environments.
+# If unset, auto-detects from network interfaces.
+# advertise_ip = "192.168.1.50"
+port = 9000
+
+[media]
+music_dirs = ["/mnt/music"]
+scan_interval_secs = 300
+
+[server]
+friendly_name = "WiiM Music Server"

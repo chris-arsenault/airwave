@@ -1,0 +1,13 @@
+services:
+  wiim-dlna:
+    build: .
+    container_name: wiim-dlna
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      # Music library — adjust the host path to your TrueNAS dataset
+      - /mnt/pool/media/music:/mnt/music:ro
+      # Persistent config — edit this file on the host to change settings
+      - ./config.toml:/etc/wiim-dlna/config.toml:ro
+    environment:
+      - RUST_LOG=wiim_dlna=info
