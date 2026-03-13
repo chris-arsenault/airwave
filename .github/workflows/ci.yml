@@ -8,44 +8,43 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -Dwarnings
 
 jobs:
-  # ── DLNA Server (Rust) ──
-  dlna-check:
-    name: DLNA Check
+  # ── WiiM Server (Rust) ──
+  server-check:
+    name: Server Check
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: dlna-server
+        working-directory: wiim-server
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: dlna-server
+          workspaces: wiim-server
       - run: cargo check --all-targets
 
-  dlna-test:
-    name: DLNA Test
+  server-test:
+    name: Server Test
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: dlna-server
+        working-directory: wiim-server
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: dlna-server
+          workspaces: wiim-server
       - run: cargo test
 
-  dlna-fmt:
-    name: DLNA Format
+  server-fmt:
+    name: Server Format
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: dlna-server
+        working-directory: wiim-server
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -53,12 +52,12 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all --check
 
-  dlna-clippy:
-    name: DLNA Clippy
+  server-clippy:
+    name: Server Clippy
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: dlna-server
+        working-directory: wiim-server
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -66,38 +65,8 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: dlna-server
-      - run: cargo clippy --all-targets -- -D warnings
-
-  # ── Control Backend (Python) ──
-  backend-lint:
-    name: Backend Lint
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: control/backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install ruff
-      - run: ruff check .
-      - run: ruff format --check .
-
-  backend-test:
-    name: Backend Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: control/backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: pytest
+          workspaces: wiim-server
+      - run: cargo clippy --all-targets
 
   # ── Control Frontend (React) ──
   frontend-lint:

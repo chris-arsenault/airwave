@@ -1,29 +1,15 @@
 services:
-  dlna-server:
-    build: ./dlna-server
-    container_name: wiim-dlna
+  wiim-server:
+    build: ./wiim-server
+    container_name: wiim-server
     network_mode: host
     restart: unless-stopped
     volumes:
       - /mnt/apps/shares/public/Music:/mnt/music:ro
-      - ./dlna-server/config.toml:/etc/wiim-dlna/config.toml:ro
+      - ./wiim-server/config.toml:/etc/wiim-server/config.toml:ro
+      - wiim-data:/data
     environment:
-      - RUST_LOG=wiim_dlna=info
-
-  backend:
-    build: ./control/backend
-    container_name: wiim-control-backend
-    network_mode: host
-    restart: unless-stopped
-    environment:
-      - DLNA_BASE_URL=http://localhost:7882
-      - DATABASE_PATH=/data/wiim-control.db
-      - HOST=0.0.0.0
-      - PORT=7881
-    volumes:
-      - wiim-control-data:/data
-    depends_on:
-      - dlna-server
+      - RUST_LOG=wiim_server=info
 
   frontend:
     build: ./control/frontend
@@ -31,7 +17,7 @@ services:
     network_mode: host
     restart: unless-stopped
     depends_on:
-      - backend
+      - wiim-server
 
 volumes:
-  wiim-control-data:
+  wiim-data:

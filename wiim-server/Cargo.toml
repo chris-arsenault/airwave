@@ -1,0 +1,51 @@
+[package]
+name = "wiim-server"
+version = "0.2.0"
+edition = "2021"
+description = "DLNA media server + WiiM device control plane"
+license = "MIT"
+repository = "https://github.com/chris-arsenault/wiim-dlna"
+
+[[bin]]
+name = "wiim-server"
+path = "src/main.rs"
+
+[[bin]]
+name = "wiim-probe"
+path = "src/bin/probe.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["macros"] }
+hyper = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+quick-xml = { version = "0.37", features = ["serialize"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+lofty = "0.22"
+uuid = { version = "1", features = ["v4", "v5"] }
+socket2 = "0.5"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+percent-encoding = "2"
+mime_guess = "2"
+tokio-util = { version = "0.7", features = ["io"] }
+walkdir = "2"
+parking_lot = "0.12"
+httpdate = "1"
+local-ip-address = "0.6"
+roxmltree = "0.20"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+dashmap = "6"
+thiserror = "2"
+rand = "0.9"
+futures-core = "0.3"
+url = "2"
+
+[dev-dependencies]
+pretty_assertions = "1"
+tempfile = "3"
