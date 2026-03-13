@@ -32,28 +32,38 @@ export function DevicePill() {
 
       {open && (
         <div className="absolute top-full left-0 mt-1 w-64 bg-[var(--color-surface-elevated)] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-          {devices.filter((d) => d.enabled).map((device) => (
-            <button
-              key={device.id}
-              onClick={() => { setActiveDevice(device.id); setOpen(false) }}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors ${
-                device.id === activeDeviceId
-                  ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-                  : 'hover:bg-[var(--color-surface-hover)]'
-              }`}
-            >
-              <SpeakerIcon />
-              <div className="flex-1 min-w-0">
-                <div className="truncate font-medium">{device.name}</div>
-                <div className="text-xs text-[var(--color-text-secondary)] truncate">
-                  {device.model ?? device.ip}
+          {devices.filter((d) => d.enabled).map((device) => {
+            const isSlave = device.group_id != null && !device.is_master
+            const selectable = !isSlave
+            return (
+              <button
+                key={device.id}
+                onClick={() => { if (selectable) { setActiveDevice(device.id); setOpen(false) } }}
+                disabled={!selectable}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors ${
+                  !selectable
+                    ? 'opacity-40 cursor-not-allowed'
+                    : device.id === activeDeviceId
+                      ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+                      : 'hover:bg-[var(--color-surface-hover)]'
+                }`}
+              >
+                <SpeakerIcon />
+                <div className="flex-1 min-w-0">
+                  <div className="truncate font-medium">
+                    {device.name}
+                    {isSlave && <span className="text-[10px] text-orange-300 ml-1.5">(follower)</span>}
+                  </div>
+                  <div className="text-xs text-[var(--color-text-secondary)] truncate">
+                    {device.model ?? device.ip}
+                  </div>
                 </div>
-              </div>
-              {device.id === activeDeviceId && (
-                <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]" />
-              )}
-            </button>
-          ))}
+                {device.id === activeDeviceId && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]" />
+                )}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

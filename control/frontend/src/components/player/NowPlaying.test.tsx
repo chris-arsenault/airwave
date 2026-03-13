@@ -123,8 +123,4 @@ describe('NowPlaying', () => {
     expect(mockPause).toHaveBeenCalledWith('dev-1')
   })
 
-  it('shows volume percentage', () => {
-    renderWithProviders(<NowPlaying open={true} onClose={vi.fn()} />)
-    expect(screen.getAllByText('50').length).toBeGreaterThanOrEqual(1)
-  })
 })

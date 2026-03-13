@@ -124,13 +124,6 @@ export function NowPlaying({ open, onClose }: Props) {
     await api.rateTrack(activeDeviceId, currentTrack.id, stars)
   }, [activeDeviceId, currentTrack])
 
-  const handleVolume = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!activeDeviceId) return
-    const vol = parseFloat(e.target.value) / 100
-    useDeviceStore.getState().updateDevice(activeDeviceId, { volume: vol })
-    await api.setVolume(activeDeviceId, vol)
-  }, [activeDeviceId])
-
   const cycleShuffle = useCallback(async () => {
     if (!activeDeviceId) return
     const idx = SHUFFLE_MODES.indexOf(shuffleMode as typeof SHUFFLE_MODES[number])
@@ -188,7 +181,7 @@ export function NowPlaying({ open, onClose }: Props) {
               handleSeek={handleSeek}
               handleSeekForward={handleSeekForward}
               handleSeekBackward={handleSeekBackward}
-              handleVolume={handleVolume}
+
               cycleShuffle={cycleShuffle}
               cycleRepeat={cycleRepeat}
               sleepTimerOpen={sleepTimerOpen}
@@ -225,7 +218,6 @@ export function NowPlaying({ open, onClose }: Props) {
           handleSeek={handleSeek}
           handleSeekForward={handleSeekForward}
           handleSeekBackward={handleSeekBackward}
-          handleVolume={handleVolume}
           cycleShuffle={cycleShuffle}
           cycleRepeat={cycleRepeat}
           sleepTimerOpen={sleepTimerOpen}
@@ -259,7 +251,6 @@ interface ContentProps {
   handleSeek: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleSeekForward: () => void
   handleSeekBackward: () => void
-  handleVolume: (e: React.ChangeEvent<HTMLInputElement>) => void
   cycleShuffle: () => void
   cycleRepeat: () => void
   sleepTimerOpen: boolean
@@ -289,7 +280,6 @@ function NowPlayingContent({
   handleSeek,
   handleSeekForward,
   handleSeekBackward,
-  handleVolume,
   cycleShuffle,
   cycleRepeat,
   sleepTimerOpen,
@@ -473,21 +463,8 @@ function NowPlayingContent({
         </button>
       </div>
 
-      {/* Volume */}
-      <div className="flex items-center gap-3 px-6 py-3 pb-8 shrink-0">
-        <VolumeIcon muted={activeDevice?.muted ?? false} />
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={Math.round((activeDevice?.volume ?? 0) * 100)}
-          onChange={handleVolume}
-          className="flex-1"
-        />
-        <span className="text-xs text-white/50 w-8 text-right">
-          {Math.round((activeDevice?.volume ?? 0) * 100)}
-        </span>
-      </div>
+      {/* Bottom padding */}
+      <div className="pb-8 shrink-0" />
     </div>
   )
 }
@@ -618,21 +595,3 @@ function SeekBackIcon() {
   )
 }
 
-function VolumeIcon({ muted }: { muted: boolean }) {
-  if (muted) {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" opacity={0.5} strokeWidth="2" strokeLinecap="round">
-        <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor" />
-        <line x1="23" y1="9" x2="17" y2="15" />
-        <line x1="17" y1="9" x2="23" y2="15" />
-      </svg>
-    )
-  }
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" opacity={0.5} strokeWidth="2" strokeLinecap="round">
-      <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-    </svg>
-  )
-}

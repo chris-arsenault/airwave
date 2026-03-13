@@ -130,7 +130,7 @@ export function DeviceManager() {
                     grouping={grouping}
                     isSelectedSlave={false}
                     isGroupedSlave
-                    onSelect={() => !grouping && slave.enabled && setActiveDevice(slave.id)}
+                    onSelect={() => !grouping && slave.enabled && setActiveDevice(master.id)}
                     onToggleSlave={() => {}}
                     onVolumeChange={(v) => handleVolumeChange(slave, v)}
                     onMuteToggle={() => handleMuteToggle(slave)}
