@@ -199,6 +199,7 @@ fn publish_devices_changed(state: &ControlState) {
                 },
                 "volume": d.volume,
                 "muted": d.muted,
+                "channel": d.channel,
                 "source": d.source,
                 "group_id": d.group_id,
                 "is_master": d.is_master,

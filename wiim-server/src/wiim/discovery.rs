@@ -219,18 +219,16 @@ async fn probe_rendering_control(device: &WiimDevice) -> bool {
 ///
 /// SlaveList JSON contains `"slaves": N` where N > 0 means this device is a master.
 /// The `group` field in the Status JSON is "0" when ungrouped.
-fn derive_group_state(
-    _device_id: &str,
+/// Returns (is_slave, is_master) based on device-reported group state.
+fn derive_group_role(
     slave_list: &str,
     status_json: &std::collections::HashMap<String, String>,
-) -> (Option<String>, bool) {
+) -> (bool, bool) {
     // Parse SlaveList to check if this device is a master with slaves
     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(slave_list) {
         if let Some(count) = parsed.get("slaves").and_then(|v| v.as_u64()) {
             if count > 0 {
-                // This device has slaves — it's a master.
-                // group_id = own device_id (set by caller)
-                return (None, true); // caller sets group_id to device's own id
+                return (false, true);
             }
         }
     }
@@ -238,13 +236,21 @@ fn derive_group_state(
     // Check the `group` field in Status — "0" means ungrouped
     if let Some(group_val) = status_json.get("group") {
         if group_val != "0" {
-            // Device reports being in a group but has no slaves — it's a slave.
-            // The group value might be the master's identifier.
-            return (Some(group_val.clone()), false);
+            return (true, false);
         }
     }
 
-    (None, false)
+    (false, false)
+}
+
+/// Resolve the master's device ID for a slave using master_ip from Status JSON.
+fn resolve_master_id(
+    status_json: &std::collections::HashMap<String, String>,
+    device_manager: &DeviceManager,
+) -> Option<String> {
+    status_json
+        .get("master_ip")
+        .and_then(|ip| device_manager.find_id_by_ip(ip))
 }
 
 /// Run periodic SSDP discovery of MediaRenderer devices.
@@ -359,23 +365,18 @@ pub async fn run_discovery(
                                     .unwrap_or(device.name);
 
                                 // Derive group state from what the device reports
-                                let (group_id, is_master) = derive_group_state(
-                                    &id,
+                                let (is_slave, is_master) = derive_group_role(
                                     &dev_info.slave_list,
                                     &dev_info.raw,
                                 );
                                 if is_master {
                                     device.is_master = true;
                                     device.group_id = Some(id.clone());
-                                } else if group_id.is_some() {
-                                    // Slave — resolve master UUID from GetInfoEx
-                                    let resolved_gid = match device.av_transport.get_info_ex().await {
-                                        Ok(info_ex) if !info_ex.master_uuid.is_empty() => {
-                                            Some(info_ex.master_uuid)
-                                        }
-                                        _ => group_id,
-                                    };
-                                    device.group_id = resolved_gid;
+                                } else if is_slave {
+                                    // Slave — resolve master by IP from Status JSON.
+                                    // Master may not be registered yet during initial discovery,
+                                    // so fall back to None (refresh_group_state will fix it later).
+                                    device.group_id = resolve_master_id(&dev_info.raw, &device_manager);
                                 }
 
                                 debug!(
@@ -460,19 +461,13 @@ async fn refresh_group_state(
         Err(_) => return,
     };
 
-    let (group_id, is_master) = derive_group_state(device_id, &dev_info.slave_list, &dev_info.raw);
+    let (is_slave, is_master) = derive_group_role(&dev_info.slave_list, &dev_info.raw);
 
-    // For slaves, resolve the actual master device ID from GetInfoEx's MasterUUID.
+    // Resolve group_id: master uses own ID, slave resolves master by IP.
     let new_group_id = if is_master {
         Some(device_id.to_string())
-    } else if group_id.is_some() {
-        // Device is a slave — try to get the master's UUID from GetInfoEx.
-        match device.av_transport.get_info_ex().await {
-            Ok(info_ex) if !info_ex.master_uuid.is_empty() => {
-                Some(info_ex.master_uuid)
-            }
-            _ => group_id,
-        }
+    } else if is_slave {
+        resolve_master_id(&dev_info.raw, device_manager)
     } else {
         None
     };
@@ -509,6 +504,7 @@ async fn refresh_group_state(
                     },
                     "volume": d.volume,
                     "muted": d.muted,
+                    "channel": d.channel,
                     "source": d.source,
                     "group_id": d.group_id,
                     "is_master": d.is_master,

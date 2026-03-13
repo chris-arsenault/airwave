@@ -46,10 +46,13 @@ export function DeviceManager() {
 
   // Group devices: masters with their slaves, then ungrouped devices.
   const masters = devices.filter((d) => d.is_master)
+  const masterIds = new Set(masters.map((d) => d.id))
+  // Slaves whose master is present render under the master card.
+  // Orphaned slaves (group_id set but master gone) render as ungrouped.
   const groupedSlaveIds = new Set(
-    devices.filter((d) => d.group_id && !d.is_master).map((d) => d.id)
+    devices.filter((d) => d.group_id && !d.is_master && masterIds.has(d.group_id)).map((d) => d.id)
   )
-  const ungrouped = devices.filter((d) => !d.group_id)
+  const ungrouped = devices.filter((d) => !groupedSlaveIds.has(d.id) && !d.is_master)
 
   if (devices.length === 0) {
     return (
@@ -144,9 +147,7 @@ export function DeviceManager() {
         })}
 
         {/* Render ungrouped devices */}
-        {ungrouped
-          .filter((d) => !groupedSlaveIds.has(d.id))
-          .map((device) => (
+        {ungrouped.map((device) => (
             <DeviceCard
               key={device.id}
               device={device}

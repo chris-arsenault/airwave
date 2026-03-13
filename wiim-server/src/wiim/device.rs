@@ -167,6 +167,13 @@ impl DeviceManager {
         self.devices.contains_key(id)
     }
 
+    pub fn find_id_by_ip(&self, ip: &str) -> Option<String> {
+        self.devices
+            .iter()
+            .find(|r| r.value().ip == ip)
+            .map(|r| r.key().clone())
+    }
+
     /// Get the master device ID for a device (returns own ID if ungrouped/master).
     pub fn master_id_for(&self, id: &str) -> Option<String> {
         let device = self.get(id)?;
