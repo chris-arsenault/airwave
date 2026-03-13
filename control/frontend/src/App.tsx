@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { api, type SessionInfo } from './api/client'
 import { BottomNav } from './components/layout/BottomNav'
 import { Sidebar } from './components/layout/Sidebar'
@@ -24,6 +24,7 @@ function AppContent() {
   const setPlaying = usePlayerStore((s) => s.setPlaying)
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
   const setSession = usePlayerStore((s) => s.setSession)
+  const qc = useQueryClient()
 
   // Initial device fetch
   useEffect(() => {
@@ -47,6 +48,8 @@ function AppContent() {
       const activeId = useDeviceStore.getState().activeDeviceId
       if (state.target_id !== activeId) return
       const session = state.session ?? null
+      const currentId = usePlayerStore.getState().currentTrack?.id
+      const trackChanged = state.current_track && state.current_track.id !== currentId
       usePlayerStore.setState({
         playing: state.playing,
         elapsedSeconds: state.elapsed_seconds,
@@ -56,6 +59,7 @@ function AppContent() {
         repeatMode: session ? session.repeat_mode : state.repeat_mode,
         allowedActions: state.allowed_actions ?? [],
         ...(state.current_track ? { currentTrack: state.current_track } : {}),
+        ...(trackChanged ? { rating: 0 } : {}),
       })
     },
     devices_changed: (data) => {
@@ -98,6 +102,10 @@ function AppContent() {
     },
     sleep_timer_expired: () => {
       setPlaying(false)
+      usePlayerStore.setState({ sleepRemaining: null })
+    },
+    queue_changed: () => {
+      qc.invalidateQueries({ queryKey: ['queue'] })
     },
   })
 

@@ -630,12 +630,14 @@ pub async fn session_next(
 
     match next_track_id {
         Some(track_id) => {
-            let stream_url = {
+            let (stream_url, title, artist) = {
                 let library = state.library.read();
                 match library.get(&track_id) {
-                    Some(LibraryObject::Track(t)) => {
-                        format!("{}/media/{}", state.base_url, t.id)
-                    }
+                    Some(LibraryObject::Track(t)) => (
+                        format!("{}/media/{}", state.base_url, t.id),
+                        t.meta.title.clone(),
+                        Some(t.meta.artist.clone()),
+                    ),
                     _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
                 }
             };
@@ -655,7 +657,7 @@ pub async fn session_next(
                 "track_changed",
                 &serde_json::json!({
                     "device_id": target,
-                    "track": { "id": track_id }
+                    "track": { "id": track_id, "title": title, "artist": artist }
                 }),
             );
             Ok(StatusCode::OK)
@@ -685,10 +687,14 @@ pub async fn session_prev(
     };
 
     if let Some(track_id) = prev_track_id {
-        let stream_url = {
+        let (stream_url, title, artist) = {
             let library = state.library.read();
             match library.get(&track_id) {
-                Some(LibraryObject::Track(t)) => format!("{}/media/{}", state.base_url, t.id),
+                Some(LibraryObject::Track(t)) => (
+                    format!("{}/media/{}", state.base_url, t.id),
+                    t.meta.title.clone(),
+                    Some(t.meta.artist.clone()),
+                ),
                 _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
             }
         };
@@ -708,7 +714,7 @@ pub async fn session_prev(
             "track_changed",
             &serde_json::json!({
                 "device_id": target,
-                "track": { "id": track_id }
+                "track": { "id": track_id, "title": title, "artist": artist }
             }),
         );
     }

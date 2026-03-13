@@ -50,7 +50,19 @@ pub async fn run_playback_monitor(
                     // Apply to session if active, else to queue.
                     let session_lock = sessions.get_or_create(&device.id);
                     let has_session = session_lock.read().is_some();
-                    if !has_session {
+                    if has_session {
+                        let shuffle_mode: super::session::ShuffleMode =
+                            serde_json::from_value(serde_json::Value::String(shuffle.to_string()))
+                                .unwrap_or(super::session::ShuffleMode::Off);
+                        let repeat_mode: super::session::RepeatMode =
+                            serde_json::from_value(serde_json::Value::String(repeat.to_string()))
+                                .unwrap_or(super::session::RepeatMode::Off);
+                        let mut guard = session_lock.write();
+                        if let Some(ref mut session) = *guard {
+                            session.set_shuffle(shuffle_mode);
+                            session.set_repeat(repeat_mode);
+                        }
+                    } else {
                         let queue = queues.get_or_create(&device.id);
                         let mut q = queue.write();
                         q.set_shuffle_mode(shuffle.to_string());
@@ -205,12 +217,14 @@ async fn handle_session_device(
         };
 
         if let Some(track_id) = next_track_id {
-            let stream_url = {
+            let (stream_url, title, artist) = {
                 let lib = library.read();
                 match lib.get(&track_id) {
-                    Some(LibraryObject::Track(track)) => {
-                        format!("{}/media/{}", base_url, track.id)
-                    }
+                    Some(LibraryObject::Track(track)) => (
+                        format!("{}/media/{}", base_url, track.id),
+                        track.meta.title.clone(),
+                        Some(track.meta.artist.clone()),
+                    ),
                     _ => {
                         last_states.insert(device.id.clone(), transport_state.to_string());
                         return;
@@ -231,7 +245,7 @@ async fn handle_session_device(
                 "track_changed",
                 &serde_json::json!({
                     "device_id": device.id,
-                    "track": { "id": track_id }
+                    "track": { "id": track_id, "title": title, "artist": artist }
                 }),
             );
         } else {
@@ -412,10 +426,10 @@ fn format_duration(seconds: f64) -> String {
 /// Map UPnP PlayMode to app shuffle/repeat modes.
 fn parse_upnp_play_mode(mode: &str) -> (&str, &str) {
     match mode {
-        "SHUFFLE" | "SHUFFLE_NOREPEAT" | "RANDOM" => ("on", "off"),
+        "SHUFFLE" | "SHUFFLE_NOREPEAT" | "RANDOM" => ("tracks", "off"),
         "REPEAT_ONE" => ("off", "track"),
         "REPEAT_ALL" => ("off", "all"),
-        "SHUFFLE_REPEAT_ALL" => ("on", "all"),
+        "SHUFFLE_REPEAT_ALL" => ("tracks", "all"),
         _ => ("off", "off"), // NORMAL or unknown
     }
 }

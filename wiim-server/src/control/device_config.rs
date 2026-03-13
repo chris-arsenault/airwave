@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 /// Persisted device configuration (survives server reboots).
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct DeviceConfig {
     pub device_id: String,
     pub enabled: bool,
@@ -73,6 +74,7 @@ impl DeviceConfigStore {
     }
 
     /// Save group membership for a device.
+    #[allow(dead_code)]
     pub fn save_group(&self, device_id: &str, group_id: Option<&str>, is_master: bool) {
         let conn = Connection::open(&self.path).unwrap();
         conn.execute(
@@ -85,6 +87,7 @@ impl DeviceConfigStore {
     }
 
     /// Clear group membership for all devices in a group.
+    #[allow(dead_code)]
     pub fn clear_group(&self, group_id: &str) {
         let conn = Connection::open(&self.path).unwrap();
         conn.execute(

@@ -11,6 +11,7 @@ interface PlayerState {
   session: SessionInfo | null
   allowedActions: string[]
   rating: number
+  sleepRemaining: number | null
   setPlaying: (playing: boolean) => void
   setCurrentTrack: (track: QueueTrack | null) => void
   setElapsed: (seconds: number) => void
@@ -20,6 +21,7 @@ interface PlayerState {
   setSession: (session: SessionInfo | null) => void
   setAllowedActions: (actions: string[]) => void
   setRating: (rating: number) => void
+  setSleepRemaining: (remaining: number | null) => void
 }
 
 export const usePlayerStore = create<PlayerState>((set) => ({
@@ -32,6 +34,7 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   session: null,
   allowedActions: [],
   rating: 0,
+  sleepRemaining: null,
   setPlaying: (playing) => set({ playing }),
   setCurrentTrack: (track) => set({ currentTrack: track, rating: 0 }),
   setElapsed: (seconds) => set({ elapsedSeconds: seconds }),
@@ -41,4 +44,5 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   setSession: (session) => set({ session }),
   setAllowedActions: (actions) => set({ allowedActions: actions }),
   setRating: (rating) => set({ rating }),
+  setSleepRemaining: (remaining) => set({ sleepRemaining: remaining }),
 }))

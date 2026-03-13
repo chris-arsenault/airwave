@@ -33,8 +33,9 @@ export function NowPlaying({ open, onClose }: Props) {
   const colors = useArtColor(currentTrack?.id ?? null)
   const rating = usePlayerStore((s) => s.rating)
   const setRating = usePlayerStore((s) => s.setRating)
+  const sleepRemaining = usePlayerStore((s) => s.sleepRemaining)
+  const setSleepRemaining = usePlayerStore((s) => s.setSleepRemaining)
   const [sleepTimerOpen, setSleepTimerOpen] = useState(false)
-  const [sleepRemaining, setSleepRemaining] = useState<number | null>(null)
 
   // Poll sleep timer state
   useEffect(() => {
@@ -49,7 +50,7 @@ export function NowPlaying({ open, onClose }: Props) {
     poll()
     const interval = setInterval(poll, 10000)
     return () => { cancelled = true; clearInterval(interval) }
-  }, [activeDeviceId])
+  }, [activeDeviceId, setSleepRemaining])
 
   const handlePlayPause = useCallback(async () => {
     if (!activeDeviceId) return
@@ -100,14 +101,14 @@ export function NowPlaying({ open, onClose }: Props) {
     await api.setSleepTimer(activeDeviceId, minutes)
     setSleepRemaining(minutes * 60)
     setSleepTimerOpen(false)
-  }, [activeDeviceId])
+  }, [activeDeviceId, setSleepRemaining])
 
   const handleCancelSleepTimer = useCallback(async () => {
     if (!activeDeviceId) return
     await api.cancelSleepTimer(activeDeviceId)
     setSleepRemaining(null)
     setSleepTimerOpen(false)
-  }, [activeDeviceId])
+  }, [activeDeviceId, setSleepRemaining])
 
   const handleRate = useCallback(async (stars: number) => {
     if (!activeDeviceId || !currentTrack) return
@@ -291,7 +292,9 @@ function NowPlayingContent({
   rating,
   handleRate,
 }: ContentProps) {
+  const isWiim = activeDevice?.device_type === 'wiim'
   const canSeek = allowedActions.length === 0 || allowedActions.includes('Seek')
+  const canQuickSeek = canSeek && isWiim
   const canNext = allowedActions.length === 0 || allowedActions.includes('Next')
   const canPrev = allowedActions.length === 0 || allowedActions.includes('Previous')
   return (
@@ -390,7 +393,7 @@ function NowPlayingContent({
         <div className="flex items-center gap-2">
           <button
             onClick={handleSeekBackward}
-            disabled={!canSeek}
+            disabled={!canQuickSeek}
             className="p-1 text-white/50 hover:text-white disabled:opacity-30 shrink-0"
             title="Seek backward"
           >
@@ -408,7 +411,7 @@ function NowPlayingContent({
           </div>
           <button
             onClick={handleSeekForward}
-            disabled={!canSeek}
+            disabled={!canQuickSeek}
             className="p-1 text-white/50 hover:text-white disabled:opacity-30 shrink-0"
             title="Seek forward"
           >

@@ -269,7 +269,7 @@ function DeviceCard({
               ) : (
                 <>
                   {device.name}
-                  {!grouping && (
+                  {!grouping && device.device_type === 'wiim' && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setEditName(device.name); setEditing(true) }}
                       className="p-0.5 text-white/30 hover:text-white/70 transition-colors"

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type QueueTrack } from '../../api/client'
 import { useDeviceStore } from '../../stores/deviceStore'
@@ -10,6 +10,8 @@ export function QueueView() {
   const queryClient = useQueryClient()
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const touchDragRef = useRef<{ startIndex: number } | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['queue', activeDeviceId],
@@ -35,6 +37,42 @@ export function QueueView() {
     await api.moveInQueue(activeDeviceId, fromIndex, toIndex)
     queryClient.invalidateQueries({ queryKey: ['queue', activeDeviceId] })
   }, [activeDeviceId, queryClient])
+
+  const getItemIndexAtPoint = useCallback((y: number): number | null => {
+    const list = listRef.current
+    if (!list) return null
+    const children = list.children
+    for (let i = 0; i < children.length; i++) {
+      const rect = children[i].getBoundingClientRect()
+      if (y >= rect.top && y <= rect.bottom) return i
+    }
+    return null
+  }, [])
+
+  const handleTouchStart = useCallback((index: number) => {
+    touchDragRef.current = { startIndex: index }
+    setDragIndex(index)
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchDragRef.current) return
+    e.preventDefault()
+    const touch = e.touches[0]
+    const overIndex = getItemIndexAtPoint(touch.clientY)
+    if (overIndex !== null) setDragOverIndex(overIndex)
+  }, [getItemIndexAtPoint])
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchDragRef.current && dragOverIndex !== null) {
+      const from = touchDragRef.current.startIndex
+      if (from !== dragOverIndex) {
+        handleDrop(from, dragOverIndex)
+      }
+    }
+    touchDragRef.current = null
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }, [dragOverIndex, handleDrop])
 
   const tracks = data?.tracks ?? []
   const position = data?.position ?? 0
@@ -71,7 +109,12 @@ export function QueueView() {
           </div>
         </div>
       ) : (
-        <div className="space-y-0.5">
+        <div
+          ref={listRef}
+          className="space-y-0.5"
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {tracks.map((track, i) => (
             <QueueItem
               key={`${track.id}-${i}`}
@@ -90,6 +133,7 @@ export function QueueView() {
                 setDragIndex(null)
                 setDragOverIndex(null)
               }}
+              onTouchDragStart={() => handleTouchStart(i)}
             />
           ))}
         </div>
@@ -114,6 +158,7 @@ function QueueItem({
   onDragStart,
   onDragOver,
   onDragEnd,
+  onTouchDragStart,
 }: {
   track: QueueTrack
   index: number
@@ -124,6 +169,7 @@ function QueueItem({
   onDragStart: () => void
   onDragOver: () => void
   onDragEnd: () => void
+  onTouchDragStart: () => void
 }) {
   return (
     <div
@@ -135,7 +181,10 @@ function QueueItem({
         isPlaying ? 'bg-[var(--color-accent)]/10' : 'hover:bg-[var(--color-surface-hover)]'
       } ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-[var(--color-accent)]' : ''}`}
     >
-      <div className="cursor-grab text-white/20 hover:text-white/50 shrink-0">
+      <div
+        className="cursor-grab text-white/20 hover:text-white/50 shrink-0 touch-none"
+        onTouchStart={(e) => { e.stopPropagation(); onTouchDragStart() }}
+      >
         <GripIcon />
       </div>
       <div className={`w-6 text-center text-xs shrink-0 ${isPlaying ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>
