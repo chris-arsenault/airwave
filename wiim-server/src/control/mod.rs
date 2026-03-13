@@ -14,3 +14,4 @@ pub mod playlists;
 pub mod queue;
 pub mod session;
 pub mod state;
+pub mod timer;

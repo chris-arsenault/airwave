@@ -115,6 +115,34 @@ impl PlayQueue {
         &self.tracks
     }
 
+    #[allow(dead_code)]
+    pub fn tracks_mut(&mut self) -> &mut Vec<QueueTrackResponse> {
+        &mut self.tracks
+    }
+
+    /// Move a track from one index to another, adjusting position accordingly.
+    pub fn move_track(&mut self, from: usize, to: usize) -> bool {
+        if from >= self.tracks.len() || to >= self.tracks.len() || from == to {
+            return false;
+        }
+        let track = self.tracks.remove(from);
+        self.tracks.insert(to, track);
+
+        // Adjust current position to follow the playing track
+        if self.position == from {
+            // The playing track was moved
+            self.position = to;
+        } else if from < self.position && to >= self.position {
+            // Moved a track from before position to after — shift left
+            self.position -= 1;
+        } else if from > self.position && to <= self.position {
+            // Moved a track from after position to before — shift right
+            self.position += 1;
+        }
+        self.rebuild_shuffle_order();
+        true
+    }
+
     pub fn position(&self) -> usize {
         self.position
     }

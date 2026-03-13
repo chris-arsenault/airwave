@@ -25,8 +25,8 @@ describe('MiniPlayer', () => {
       devices: [{
         id: 'dev-1', name: 'Living Room', ip: '192.168.1.10', model: 'WiiM Pro',
         firmware: '4.8.1', device_type: 'wiim', enabled: true,
-        capabilities: { av_transport: true, rendering_control: true, wiim_extended: true },
-        volume: 0.5, muted: false, source: 'wifi', group_id: null, is_master: false,
+        capabilities: { av_transport: true, rendering_control: true, wiim_extended: true, https_api: true },
+        volume: 0.5, muted: false, channel: null, source: 'wifi', group_id: null, is_master: false,
       }],
       activeDeviceId: 'dev-1',
     })

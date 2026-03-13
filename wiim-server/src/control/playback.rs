@@ -7,8 +7,9 @@ use crate::media::library::LibraryObject;
 use crate::wiim::device::WiimDevice;
 
 use super::models::{
-    PlayRequest, PlaybackStateResponse, QueueAddRequest, QueueStateResponse, QueueTrackResponse,
-    RepeatModeRequest, SeekRequest, SessionInfoResponse, SessionPlayRequest, ShuffleModeRequest,
+    PlayRequest, PlaybackStateResponse, QueueAddRequest, QueueMoveRequest, QueueStateResponse,
+    QueueTrackResponse, RateTrackRequest, RepeatModeRequest, SeekRequest, SessionInfoResponse,
+    SessionPlayRequest, ShuffleModeRequest,
 };
 use super::session::{PlaySession, RepeatMode, ShuffleMode};
 use super::state::ControlState;
@@ -66,9 +67,9 @@ pub async fn get_state(
     };
 
     // Check for active session first, fall back to queue.
-    let session_lock = state.sessions.get_or_create(&target);
-    let session_guard = session_lock.read();
-    let (current_track, position, queue_length, shuffle_mode, repeat_mode, session_info) =
+    let (current_track, position, queue_length, shuffle_mode, repeat_mode, session_info) = {
+        let session_lock = state.sessions.get_or_create(&target);
+        let session_guard = session_lock.read();
         if let Some(ref session) = *session_guard {
             let track = session.current_track_id().and_then(|tid| {
                 let library = state.library.read();
@@ -111,8 +112,19 @@ pub async fn get_state(
                 q.repeat_mode().to_string(),
                 None,
             )
-        };
-    drop(session_guard);
+        }
+    };
+
+    // Fetch allowed transport actions (Phase 4)
+    let allowed_actions = if device.capabilities.av_transport {
+        device
+            .av_transport
+            .get_current_transport_actions()
+            .await
+            .ok()
+    } else {
+        None
+    };
 
     Ok(Json(PlaybackStateResponse {
         target_id: target,
@@ -125,6 +137,7 @@ pub async fn get_state(
         elapsed_seconds: elapsed,
         duration_seconds: duration,
         session: session_info,
+        allowed_actions,
     }))
 }
 
@@ -424,6 +437,67 @@ pub async fn clear_queue(
     let queue = state.queues.get_or_create(&target);
     queue.write().clear();
     StatusCode::OK
+}
+
+pub async fn seek_forward(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let (_target, device) = resolve_playback_target(&state, &target)?;
+    device
+        .av_transport
+        .seek_forward()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(StatusCode::OK)
+}
+
+pub async fn seek_backward(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let (_target, device) = resolve_playback_target(&state, &target)?;
+    device
+        .av_transport
+        .seek_backward()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(StatusCode::OK)
+}
+
+pub async fn move_in_queue(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+    Json(body): Json<QueueMoveRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let (target, _device) = resolve_playback_target(&state, &target)?;
+    let queue = state.queues.get_or_create(&target);
+    let moved = queue.write().move_track(body.from_index, body.to_index);
+    if !moved {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    state.events.publish(
+        "queue_changed",
+        &serde_json::json!({ "device_id": target }),
+    );
+    Ok(StatusCode::OK)
+}
+
+pub async fn rate_track(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+    Json(body): Json<RateTrackRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let (_target, device) = resolve_playback_target(&state, &target)?;
+    if body.rating > 5 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    device
+        .play_queue
+        .set_rating("DLNA", &body.track_id, body.rating)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(StatusCode::OK)
 }
 
 fn parse_duration(s: &str) -> f64 {

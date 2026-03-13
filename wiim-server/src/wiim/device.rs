@@ -1,6 +1,7 @@
 use dashmap::DashMap;
 use serde::Serialize;
 
+use super::https_api::HttpsApiClient;
 use super::services::av_transport::AvTransport;
 use super::services::play_queue::PlayQueueService;
 use super::services::rendering_control::RenderingControl;
@@ -12,6 +13,7 @@ pub struct DeviceCapabilities {
     pub av_transport: bool,
     pub rendering_control: bool,
     pub wiim_extended: bool,
+    pub https_api: bool,
 }
 
 /// Service control URLs parsed from a device's description.xml.
@@ -50,12 +52,14 @@ pub struct WiimDevice {
     pub capabilities: DeviceCapabilities,
     pub volume: f64,
     pub muted: bool,
+    pub channel: Option<String>,
     pub source: Option<String>,
     pub group_id: Option<String>,
     pub is_master: bool,
     pub av_transport: AvTransport,
     pub rendering: RenderingControl,
     pub play_queue: PlayQueueService,
+    pub https_client: Option<HttpsApiClient>,
 }
 
 impl WiimDevice {
@@ -88,6 +92,12 @@ impl WiimDevice {
             PlayQueueService::new(client)
         };
 
+        let https_client = if params.capabilities.https_api {
+            Some(HttpsApiClient::new(&params.ip))
+        } else {
+            None
+        };
+
         Self {
             id,
             name: params.name,
@@ -101,12 +111,14 @@ impl WiimDevice {
             capabilities: params.capabilities,
             volume: 0.0,
             muted: false,
+            channel: None,
             source: None,
             group_id: None,
             is_master: false,
             av_transport,
             rendering,
             play_queue,
+            https_client,
         }
     }
 }

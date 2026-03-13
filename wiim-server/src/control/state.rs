@@ -9,6 +9,7 @@ use super::events::EventBus;
 use super::playlists::PlaylistStore;
 use super::queue::QueueManager;
 use super::session::SessionManager;
+use super::timer::SleepTimerManager;
 
 #[derive(Clone)]
 pub struct ControlState {
@@ -20,5 +21,6 @@ pub struct ControlState {
     pub queues: Arc<QueueManager>,
     pub sessions: Arc<SessionManager>,
     pub art_cache: Arc<ArtCache>,
+    pub sleep_timers: SleepTimerManager,
     pub base_url: String,
 }

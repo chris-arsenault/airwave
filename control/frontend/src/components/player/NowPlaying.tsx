@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../../api/client'
 import { usePlayerStore } from '../../stores/playerStore'
@@ -26,11 +26,30 @@ interface Props {
 }
 
 export function NowPlaying({ open, onClose }: Props) {
-  const { playing, currentTrack, elapsedSeconds, durationSeconds, shuffleMode, repeatMode, session } = usePlayerStore()
+  const { playing, currentTrack, elapsedSeconds, durationSeconds, shuffleMode, repeatMode, session, allowedActions } = usePlayerStore()
   const { setPlaying, setShuffleMode, setRepeatMode } = usePlayerStore()
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
   const activeDevice = useDeviceStore((s) => s.devices.find((d) => d.id === s.activeDeviceId))
   const colors = useArtColor(currentTrack?.id ?? null)
+  const rating = usePlayerStore((s) => s.rating)
+  const setRating = usePlayerStore((s) => s.setRating)
+  const [sleepTimerOpen, setSleepTimerOpen] = useState(false)
+  const [sleepRemaining, setSleepRemaining] = useState<number | null>(null)
+
+  // Poll sleep timer state
+  useEffect(() => {
+    if (!activeDeviceId) return
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const res = await api.getSleepTimer(activeDeviceId)
+        if (!cancelled) setSleepRemaining(res.remaining_seconds)
+      } catch { /* ignore */ }
+    }
+    poll()
+    const interval = setInterval(poll, 10000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [activeDeviceId])
 
   const handlePlayPause = useCallback(async () => {
     if (!activeDeviceId) return
@@ -65,6 +84,36 @@ export function NowPlaying({ open, onClose }: Props) {
     if (!activeDeviceId) return
     await api.seek(activeDeviceId, parseFloat(e.target.value))
   }, [activeDeviceId])
+
+  const handleSeekForward = useCallback(async () => {
+    if (!activeDeviceId) return
+    await api.seekForward(activeDeviceId)
+  }, [activeDeviceId])
+
+  const handleSeekBackward = useCallback(async () => {
+    if (!activeDeviceId) return
+    await api.seekBackward(activeDeviceId)
+  }, [activeDeviceId])
+
+  const handleSetSleepTimer = useCallback(async (minutes: number) => {
+    if (!activeDeviceId) return
+    await api.setSleepTimer(activeDeviceId, minutes)
+    setSleepRemaining(minutes * 60)
+    setSleepTimerOpen(false)
+  }, [activeDeviceId])
+
+  const handleCancelSleepTimer = useCallback(async () => {
+    if (!activeDeviceId) return
+    await api.cancelSleepTimer(activeDeviceId)
+    setSleepRemaining(null)
+    setSleepTimerOpen(false)
+  }, [activeDeviceId])
+
+  const handleRate = useCallback(async (stars: number) => {
+    if (!activeDeviceId || !currentTrack) return
+    setRating(stars)
+    await api.rateTrack(activeDeviceId, currentTrack.id, stars)
+  }, [activeDeviceId, currentTrack])
 
   const handleVolume = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!activeDeviceId) return
@@ -122,14 +171,24 @@ export function NowPlaying({ open, onClose }: Props) {
               shuffleMode={shuffleMode}
               repeatMode={repeatMode}
               session={session}
+              allowedActions={allowedActions}
               activeDevice={activeDevice}
               handlePlayPause={handlePlayPause}
               handleNext={handleNext}
               handlePrev={handlePrev}
               handleSeek={handleSeek}
+              handleSeekForward={handleSeekForward}
+              handleSeekBackward={handleSeekBackward}
               handleVolume={handleVolume}
               cycleShuffle={cycleShuffle}
               cycleRepeat={cycleRepeat}
+              sleepTimerOpen={sleepTimerOpen}
+              setSleepTimerOpen={setSleepTimerOpen}
+              sleepRemaining={sleepRemaining}
+              handleSetSleepTimer={handleSetSleepTimer}
+              handleCancelSleepTimer={handleCancelSleepTimer}
+              rating={rating}
+              handleRate={handleRate}
             />
           </motion.div>
         )}
@@ -149,14 +208,24 @@ export function NowPlaying({ open, onClose }: Props) {
           shuffleMode={shuffleMode}
           repeatMode={repeatMode}
           session={session}
+          allowedActions={allowedActions}
           activeDevice={activeDevice}
           handlePlayPause={handlePlayPause}
           handleNext={handleNext}
           handlePrev={handlePrev}
           handleSeek={handleSeek}
+          handleSeekForward={handleSeekForward}
+          handleSeekBackward={handleSeekBackward}
           handleVolume={handleVolume}
           cycleShuffle={cycleShuffle}
           cycleRepeat={cycleRepeat}
+          sleepTimerOpen={sleepTimerOpen}
+          setSleepTimerOpen={setSleepTimerOpen}
+          sleepRemaining={sleepRemaining}
+          handleSetSleepTimer={handleSetSleepTimer}
+          handleCancelSleepTimer={handleCancelSleepTimer}
+          rating={rating}
+          handleRate={handleRate}
         />
       </div>
     </>
@@ -173,14 +242,24 @@ interface ContentProps {
   shuffleMode: string
   repeatMode: string
   session: ReturnType<typeof usePlayerStore.getState>['session']
+  allowedActions: string[]
   activeDevice: ReturnType<typeof useDeviceStore.getState>['devices'][number] | undefined
   handlePlayPause: () => void
   handleNext: () => void
   handlePrev: () => void
   handleSeek: (e: React.ChangeEvent<HTMLInputElement>) => void
+  handleSeekForward: () => void
+  handleSeekBackward: () => void
   handleVolume: (e: React.ChangeEvent<HTMLInputElement>) => void
   cycleShuffle: () => void
   cycleRepeat: () => void
+  sleepTimerOpen: boolean
+  setSleepTimerOpen: (open: boolean) => void
+  sleepRemaining: number | null
+  handleSetSleepTimer: (minutes: number) => void
+  handleCancelSleepTimer: () => void
+  rating: number
+  handleRate: (stars: number) => void
 }
 
 function NowPlayingContent({
@@ -193,15 +272,28 @@ function NowPlayingContent({
   shuffleMode,
   repeatMode,
   session,
+  allowedActions,
   activeDevice,
   handlePlayPause,
   handleNext,
   handlePrev,
   handleSeek,
+  handleSeekForward,
+  handleSeekBackward,
   handleVolume,
   cycleShuffle,
   cycleRepeat,
+  sleepTimerOpen,
+  setSleepTimerOpen,
+  sleepRemaining,
+  handleSetSleepTimer,
+  handleCancelSleepTimer,
+  rating,
+  handleRate,
 }: ContentProps) {
+  const canSeek = allowedActions.length === 0 || allowedActions.includes('Seek')
+  const canNext = allowedActions.length === 0 || allowedActions.includes('Next')
+  const canPrev = allowedActions.length === 0 || allowedActions.includes('Previous')
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -224,7 +316,41 @@ function NowPlayingContent({
             </div>
           )}
         </div>
-        <div className="w-10" />
+        <div className="relative">
+          <button
+            onClick={() => setSleepTimerOpen(!sleepTimerOpen)}
+            className={`p-2 ${sleepRemaining ? 'text-[var(--color-accent)]' : 'text-white/40'} hover:text-white`}
+            title="Sleep timer"
+          >
+            <MoonIcon />
+            {sleepRemaining != null && sleepRemaining > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 text-[9px] bg-[var(--color-accent)] text-white rounded-full w-4 h-4 flex items-center justify-center">
+                {Math.ceil(sleepRemaining / 60)}
+              </span>
+            )}
+          </button>
+          {sleepTimerOpen && (
+            <div className="absolute right-0 top-10 bg-[var(--color-surface-elevated)] rounded-xl shadow-xl border border-white/10 py-1 z-50 min-w-[140px]">
+              {[15, 30, 45, 60, 90].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => handleSetSleepTimer(m)}
+                  className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+                >
+                  {m} min
+                </button>
+              ))}
+              {sleepRemaining != null && (
+                <button
+                  onClick={handleCancelSleepTimer}
+                  className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10 border-t border-white/5"
+                >
+                  Cancel timer
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Album art */}
@@ -243,19 +369,53 @@ function NowPlayingContent({
             : 'Select a track to play'
           }
         </div>
+        {/* Star rating */}
+        {currentTrack && (
+          <div className="flex items-center justify-center gap-1 mt-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                onClick={() => handleRate(star)}
+                className={`text-lg ${star <= rating ? 'text-yellow-400' : 'text-white/20'} hover:text-yellow-300 transition-colors`}
+              >
+                {star <= rating ? '\u2605' : '\u2606'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Seek bar */}
+      {/* Seek bar with forward/backward buttons */}
       <div className="px-6 py-2 shrink-0">
-        <input
-          type="range"
-          min={0}
-          max={durationSeconds || 1}
-          value={elapsedSeconds}
-          onChange={handleSeek}
-          className="seek-bar w-full"
-        />
-        <div className="flex justify-between text-xs text-white/50 mt-1">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSeekBackward}
+            disabled={!canSeek}
+            className="p-1 text-white/50 hover:text-white disabled:opacity-30 shrink-0"
+            title="Seek backward"
+          >
+            <SeekBackIcon />
+          </button>
+          <div className="flex-1">
+            <input
+              type="range"
+              min={0}
+              max={durationSeconds || 1}
+              value={elapsedSeconds}
+              onChange={handleSeek}
+              className="seek-bar w-full"
+            />
+          </div>
+          <button
+            onClick={handleSeekForward}
+            disabled={!canSeek}
+            className="p-1 text-white/50 hover:text-white disabled:opacity-30 shrink-0"
+            title="Seek forward"
+          >
+            <SeekForwardIcon />
+          </button>
+        </div>
+        <div className="flex justify-between text-xs text-white/50 mt-1 px-7">
           <span>{formatTime(elapsedSeconds)}</span>
           <span>{formatTime(durationSeconds)}</span>
         </div>
@@ -274,7 +434,7 @@ function NowPlayingContent({
           )}
         </button>
 
-        <button onClick={handlePrev} className="p-3 text-white">
+        <button onClick={handlePrev} disabled={!canPrev} className="p-3 text-white disabled:opacity-30">
           <PrevIcon />
         </button>
 
@@ -286,7 +446,7 @@ function NowPlayingContent({
           {playing ? <PauseIcon size={28} /> : <PlayIcon size={28} />}
         </button>
 
-        <button onClick={handleNext} className="p-3 text-white">
+        <button onClick={handleNext} disabled={!canNext} className="p-3 text-white disabled:opacity-30">
           <NextIcon />
         </button>
 
@@ -417,6 +577,32 @@ function RepeatIcon() {
       <path d="M3 11V9a4 4 0 0 1 4-4h14" />
       <polyline points="7,23 3,19 7,15" />
       <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  )
+}
+
+function SeekForwardIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <polygon points="5,4 15,12 5,20" fill="currentColor" />
+      <line x1="19" y1="5" x2="19" y2="19" />
+    </svg>
+  )
+}
+
+function SeekBackIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <polygon points="19,20 9,12 19,4" fill="currentColor" />
+      <line x1="5" y1="5" x2="5" y2="19" />
     </svg>
   )
 }

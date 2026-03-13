@@ -37,6 +37,12 @@ pub struct MediaInfo {
     pub track_source: String,
 }
 
+#[derive(Debug)]
+pub struct TransportSettings {
+    pub play_mode: String,
+    pub rec_quality_mode: String,
+}
+
 /// Extended info — WiiM-specific action returning transport + volume + multi-room state.
 #[derive(Debug)]
 pub struct InfoEx {
@@ -172,6 +178,34 @@ impl AvTransport {
             current_uri: v.get("CurrentURI").cloned().unwrap_or_default(),
             current_uri_metadata: v.get("CurrentURIMetaData").cloned().unwrap_or_default(),
             track_source: v.get("TrackSource").cloned().unwrap_or_default(),
+        })
+    }
+
+    pub async fn seek_forward(&self) -> Result<(), SoapError> {
+        self.call("SeekForward", &[]).await?;
+        Ok(())
+    }
+
+    pub async fn seek_backward(&self) -> Result<(), SoapError> {
+        self.call("SeekBackward", &[]).await?;
+        Ok(())
+    }
+
+    pub async fn get_current_transport_actions(&self) -> Result<Vec<String>, SoapError> {
+        let v = self.call("GetCurrentTransportActions", &[]).await?;
+        let actions = v.get("Actions").cloned().unwrap_or_default();
+        Ok(actions
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect())
+    }
+
+    pub async fn get_transport_settings(&self) -> Result<TransportSettings, SoapError> {
+        let v = self.call("GetTransportSettings", &[]).await?;
+        Ok(TransportSettings {
+            play_mode: v.get("PlayMode").cloned().unwrap_or_default(),
+            rec_quality_mode: v.get("RecQualityMode").cloned().unwrap_or_default(),
         })
     }
 

@@ -153,6 +153,40 @@ impl PlayQueueService {
         })
     }
 
+    pub async fn move_tracks(
+        &self,
+        name: &str,
+        index_list: &str,
+        to_index: u32,
+    ) -> Result<(), SoapError> {
+        let to = to_index.to_string();
+        self.call(
+            "MoveTracksInQueue",
+            &[
+                ("QueueName", name),
+                ("IndexList", index_list),
+                ("ToIndex", &to),
+            ],
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn set_rating(
+        &self,
+        source: &str,
+        track_id: &str,
+        rating: u8,
+    ) -> Result<(), SoapError> {
+        let r = rating.to_string();
+        self.call(
+            "SetRating",
+            &[("Source", source), ("TrackID", track_id), ("Rating", &r)],
+        )
+        .await?;
+        Ok(())
+    }
+
     pub async fn append_tracks_ex(
         &self,
         context: &str,

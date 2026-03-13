@@ -3,12 +3,13 @@ import { usePlayerStore } from '../../stores/playerStore'
 import { useDeviceStore } from '../../stores/deviceStore'
 import { api } from '../../api/client'
 
+
 interface Props {
   onExpand: () => void
 }
 
 export function MiniPlayer({ onExpand }: Props) {
-  const { playing, currentTrack, elapsedSeconds, durationSeconds, session } = usePlayerStore()
+  const { playing, currentTrack, elapsedSeconds, durationSeconds, session, allowedActions } = usePlayerStore()
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
 
   const progress = durationSeconds > 0 ? (elapsedSeconds / durationSeconds) * 100 : 0
@@ -70,7 +71,8 @@ export function MiniPlayer({ onExpand }: Props) {
         </button>
         <button
           onClick={handleNext}
-          className="w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] shrink-0"
+          disabled={allowedActions.length > 0 && !allowedActions.includes('Next')}
+          className="w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] shrink-0 disabled:opacity-30"
         >
           <NextIcon />
         </button>

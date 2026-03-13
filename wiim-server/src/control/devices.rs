@@ -2,7 +2,10 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
 
-use super::models::{DeviceCapabilitiesResponse, DeviceResponse, SetEnabledRequest, VolumeRequest};
+use super::models::{
+    ChannelRequest, DeviceCapabilitiesResponse, DeviceNameRequest, DeviceResponse,
+    SetEnabledRequest, VolumeRequest,
+};
 use super::state::ControlState;
 
 fn device_to_response(d: &crate::wiim::device::WiimDevice) -> DeviceResponse {
@@ -18,9 +21,11 @@ fn device_to_response(d: &crate::wiim::device::WiimDevice) -> DeviceResponse {
             av_transport: d.capabilities.av_transport,
             rendering_control: d.capabilities.rendering_control,
             wiim_extended: d.capabilities.wiim_extended,
+            https_api: d.capabilities.https_api,
         },
         volume: d.volume,
         muted: d.muted,
+        channel: d.channel.clone(),
         source: d.source.clone(),
         group_id: d.group_id.clone(),
         is_master: d.is_master,
@@ -92,6 +97,59 @@ pub async fn toggle_mute(
     state.events.publish(
         "mute_changed",
         &serde_json::json!({ "device_id": id, "muted": new_mute }),
+    );
+    Ok(StatusCode::OK)
+}
+
+pub async fn rename_device(
+    State(state): State<ControlState>,
+    Path(id): Path<String>,
+    Json(body): Json<DeviceNameRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let device = state.devices.get(&id).ok_or(StatusCode::NOT_FOUND)?;
+    device
+        .rendering
+        .set_device_name(&body.name)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    state.devices.update(&id, |d| d.name.clone_from(&body.name));
+    state.events.publish(
+        "device_state",
+        &serde_json::json!({ "device_id": id, "name": body.name }),
+    );
+    Ok(StatusCode::OK)
+}
+
+pub async fn get_channel(
+    State(state): State<ControlState>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let device = state.devices.get(&id).ok_or(StatusCode::NOT_FOUND)?;
+    let channel = device
+        .rendering
+        .get_channel()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(Json(serde_json::json!({ "channel": channel })))
+}
+
+pub async fn set_channel(
+    State(state): State<ControlState>,
+    Path(id): Path<String>,
+    Json(body): Json<ChannelRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let device = state.devices.get(&id).ok_or(StatusCode::NOT_FOUND)?;
+    device
+        .rendering
+        .set_channel(&body.channel)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    state
+        .devices
+        .update(&id, |d| d.channel = Some(body.channel.clone()));
+    state.events.publish(
+        "device_state",
+        &serde_json::json!({ "device_id": id, "channel": body.channel }),
     );
     Ok(StatusCode::OK)
 }

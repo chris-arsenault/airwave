@@ -177,4 +177,35 @@ impl RenderingControl {
         self.call("SetDeviceName", &[("Name", name)]).await?;
         Ok(())
     }
+
+    pub async fn get_channel(&self) -> Result<String, SoapError> {
+        let v = self.call("GetChannel", &[("Channel", "Master")]).await?;
+        Ok(v.get("CurrentChannel").cloned().unwrap_or_default())
+    }
+
+    pub async fn set_channel(&self, channel: &str) -> Result<(), SoapError> {
+        self.call(
+            "SetChannel",
+            &[("Channel", "Master"), ("DesiredChannel", channel)],
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn set_alarm_queue(&self, context: &str) -> Result<(), SoapError> {
+        self.call("SetAlarmQueue", &[("AlarmContext", context)])
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_alarm_queue(&self, name: &str) -> Result<String, SoapError> {
+        let v = self.call("GetAlarmQueue", &[("AlarmName", name)]).await?;
+        Ok(v.get("AlarmContext").cloned().unwrap_or_default())
+    }
+
+    pub async fn delete_alarm_queue(&self, name: &str) -> Result<(), SoapError> {
+        self.call("DeleteAlarmQueue", &[("AlarmName", name)])
+            .await?;
+        Ok(())
+    }
 }

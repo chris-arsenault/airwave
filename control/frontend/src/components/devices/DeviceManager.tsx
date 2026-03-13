@@ -169,9 +169,16 @@ export function DeviceManager() {
 function DeviceTypeBadge({ device }: { device: Device }) {
   if (device.device_type === 'wiim') {
     return (
-      <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full">
-        WiiM
-      </span>
+      <>
+        <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full">
+          WiiM
+        </span>
+        {!device.capabilities.https_api && (
+          <span className="text-[10px] text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full" title="HTTPS API (port 443) unavailable — reboot device to restore EQ controls">
+            Reboot needed
+          </span>
+        )}
+      </>
     )
   }
   return (
@@ -207,6 +214,21 @@ function DeviceCard({
   onDissolveGroup: () => void
 }) {
   const volumePercent = Math.round(device.volume * 100)
+  const updateDevice = useDeviceStore((s) => s.updateDevice)
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(device.name)
+
+  const handleRename = async () => {
+    if (!editName.trim() || editName === device.name) { setEditing(false); return }
+    await api.renameDevice(device.id, editName.trim())
+    updateDevice(device.id, { name: editName.trim() })
+    setEditing(false)
+  }
+
+  const handleChannelChange = async (ch: string) => {
+    updateDevice(device.id, { channel: ch })
+    await api.setChannel(device.id, ch)
+  }
 
   return (
     <div
@@ -234,7 +256,30 @@ function DeviceCard({
           )}
           <div>
             <div className="font-medium text-sm flex items-center gap-2">
-              {device.name}
+              {editing ? (
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={handleRename}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setEditing(false) }}
+                  autoFocus
+                  className="bg-white/10 rounded px-1 py-0.5 text-sm text-white outline-none border border-white/20 w-32"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <>
+                  {device.name}
+                  {!grouping && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditName(device.name); setEditing(true) }}
+                      className="p-0.5 text-white/30 hover:text-white/70 transition-colors"
+                      title="Rename"
+                    >
+                      <PencilIcon />
+                    </button>
+                  )}
+                </>
+              )}
               <DeviceTypeBadge device={device} />
               {isActive && !grouping && device.enabled && (
                 <span className="text-[10px] text-[var(--color-accent)] bg-[var(--color-accent)]/10 px-1.5 py-0.5 rounded-full">
@@ -305,6 +350,28 @@ function DeviceCard({
           </span>
         </div>
       )}
+
+      {/* Channel control — WiiM devices only */}
+      {!grouping && device.enabled && device.device_type === 'wiim' && device.channel != null && (
+        <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+          <span className="text-xs text-[var(--color-text-secondary)] shrink-0">Channel</span>
+          <div className="flex rounded-lg overflow-hidden border border-white/10">
+            {['Left', 'Stereo', 'Right'].map((ch) => (
+              <button
+                key={ch}
+                onClick={() => handleChannelChange(ch)}
+                className={`px-3 py-1 text-xs transition-colors ${
+                  device.channel === ch
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'bg-white/5 text-white/50 hover:bg-white/10'
+                }`}
+              >
+                {ch === 'Left' ? 'L' : ch === 'Right' ? 'R' : 'Stereo'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -324,6 +391,14 @@ function VolumeMutedIcon() {
       <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor" />
       <line x1="23" y1="9" x2="17" y2="15" />
       <line x1="17" y1="9" x2="23" y2="15" />
+    </svg>
+  )
+}
+
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
     </svg>
   )
 }

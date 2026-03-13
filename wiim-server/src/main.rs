@@ -110,6 +110,8 @@ async fn main() {
     let session_manager = Arc::new(control::session::SessionManager::new());
     let art_cache = Arc::new(media::art::ArtCache::new(data_dir));
 
+    let sleep_timer_manager = control::timer::SleepTimerManager::new();
+
     let control_state = control::state::ControlState {
         devices: device_manager.clone(),
         device_config: device_config_store.clone(),
@@ -119,6 +121,7 @@ async fn main() {
         queues: queue_manager.clone(),
         sessions: session_manager.clone(),
         art_cache,
+        sleep_timers: sleep_timer_manager,
         base_url: cfg.base_url(),
     };
 
@@ -134,6 +137,25 @@ async fn main() {
         .route("/devices/{id}/volume", post(control::devices::set_volume))
         .route("/devices/{id}/mute", post(control::devices::toggle_mute))
         .route("/devices/{id}/enabled", post(control::devices::set_enabled))
+        .route("/devices/{id}/name", post(control::devices::rename_device))
+        .route(
+            "/devices/{id}/channel",
+            get(control::devices::get_channel).post(control::devices::set_channel),
+        )
+        .route(
+            "/devices/{id}/sleep-timer",
+            get(control::timer::get_sleep_timer)
+                .post(control::timer::set_sleep_timer)
+                .delete(control::timer::cancel_sleep_timer),
+        )
+        .route(
+            "/devices/{id}/source",
+            post(control::eq::set_source),
+        )
+        .route(
+            "/devices/{id}/wifi",
+            get(control::eq::get_wifi_status),
+        )
         // Playback (under /playback/{target} to match frontend)
         .route("/playback/{id}", get(control::playback::get_state))
         .route("/playback/{id}/play", post(control::playback::play))
@@ -143,6 +165,15 @@ async fn main() {
         .route("/playback/{id}/next", post(control::playback::next_track))
         .route("/playback/{id}/prev", post(control::playback::prev_track))
         .route("/playback/{id}/seek", post(control::playback::seek))
+        .route(
+            "/playback/{id}/seek-forward",
+            post(control::playback::seek_forward),
+        )
+        .route(
+            "/playback/{id}/seek-backward",
+            post(control::playback::seek_backward),
+        )
+        .route("/playback/{id}/rate", post(control::playback::rate_track))
         .route(
             "/playback/{id}/shuffle",
             post(control::playback::set_shuffle),
@@ -179,17 +210,32 @@ async fn main() {
             post(control::playback::add_to_queue),
         )
         .route(
+            "/playback/{id}/queue/move",
+            post(control::playback::move_in_queue),
+        )
+        .route(
             "/playback/{id}/queue/{index}",
             delete(control::playback::remove_from_queue),
         )
-        // EQ / Presets
-        .route("/eq/{id}/presets", get(control::eq::get_presets))
-        .route("/eq/{id}/preset", post(control::eq::set_preset))
-        .route("/eq/{id}/equalizer", get(control::eq::get_equalizer))
-        .route("/eq/{id}/peq/presets", get(control::eq::get_peq_presets))
+        // EQ (HTTPS API-based)
+        .route("/eq/{id}/state", get(control::eq::get_eq_state))
+        .route("/eq/{id}/presets", get(control::eq::get_eq_presets))
         .route(
-            "/eq/{id}/peq/presets/{name}/load",
-            post(control::eq::load_peq_preset),
+            "/eq/{id}/presets/{name}",
+            delete(control::eq::delete_eq_preset),
+        )
+        .route("/eq/{id}/load", post(control::eq::load_eq_preset))
+        .route("/eq/{id}/enable", post(control::eq::enable_eq))
+        .route("/eq/{id}/disable", post(control::eq::disable_eq))
+        .route("/eq/{id}/band", post(control::eq::set_eq_band))
+        .route("/eq/{id}/save", post(control::eq::save_eq_preset))
+        .route(
+            "/eq/{id}/balance",
+            get(control::eq::get_balance).post(control::eq::set_balance),
+        )
+        .route(
+            "/eq/{id}/crossfade",
+            get(control::eq::get_crossfade).post(control::eq::set_crossfade),
         )
         // Playlists
         .route(

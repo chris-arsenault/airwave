@@ -8,6 +8,7 @@ use tokio::net::UdpSocket;
 use tracing::{debug, info, warn};
 
 use super::device::{DeviceCapabilities, DeviceManager, DeviceParams, ServiceUrls, WiimDevice};
+use super::https_api::HttpsApiClient;
 use crate::control::device_config::DeviceConfigStore;
 use crate::control::events::EventBus;
 
@@ -208,6 +209,44 @@ async fn probe_rendering_control(device: &WiimDevice) -> bool {
     device.rendering.get_volume().await.is_ok()
 }
 
+/// Derive group state from GetControlDeviceInfo response.
+/// Returns (group_id, is_master) based on the device's actual multiroom state.
+///
+/// MultiType values observed:
+///   "0" — not in a group (standalone)
+///   "1" — standalone (WiiM Mini reports this even when ungrouped)
+///   Other values may indicate master/slave — needs testing with active group.
+///
+/// SlaveList JSON contains `"slaves": N` where N > 0 means this device is a master.
+/// The `group` field in the Status JSON is "0" when ungrouped.
+fn derive_group_state(
+    _device_id: &str,
+    slave_list: &str,
+    status_json: &std::collections::HashMap<String, String>,
+) -> (Option<String>, bool) {
+    // Parse SlaveList to check if this device is a master with slaves
+    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(slave_list) {
+        if let Some(count) = parsed.get("slaves").and_then(|v| v.as_u64()) {
+            if count > 0 {
+                // This device has slaves — it's a master.
+                // group_id = own device_id (set by caller)
+                return (None, true); // caller sets group_id to device's own id
+            }
+        }
+    }
+
+    // Check the `group` field in Status — "0" means ungrouped
+    if let Some(group_val) = status_json.get("group") {
+        if group_val != "0" {
+            // Device reports being in a group but has no slaves — it's a slave.
+            // The group value might be the master's identifier.
+            return (Some(group_val.clone()), false);
+        }
+    }
+
+    (None, false)
+}
+
 /// Run periodic SSDP discovery of MediaRenderer devices.
 pub async fn run_discovery(
     device_manager: Arc<DeviceManager>,
@@ -221,7 +260,7 @@ pub async fn run_discovery(
         .build()
         .expect("failed to build discovery HTTP client");
 
-    // Load persisted device configs
+    // Load persisted device configs (only used for `enabled` state)
     let persisted = device_config.load_all();
 
     // Initial delay to let the server start up
@@ -247,6 +286,7 @@ pub async fn run_discovery(
                             av_transport: info.service_urls.av_transport.is_some(),
                             rendering_control: info.service_urls.rendering_control.is_some(),
                             wiim_extended: info.has_play_queue,
+                            https_api: false,
                         };
 
                         let mut device = WiimDevice::new(DeviceParams {
@@ -286,36 +326,80 @@ pub async fn run_discovery(
                             }
                         }
 
+                        // Probe HTTPS API (port 443) for WiiM devices
+                        if device.capabilities.wiim_extended {
+                            let probe = HttpsApiClient::probe_client(&device.ip);
+                            let has_https = probe.probe().await;
+                            device.capabilities.https_api = has_https;
+                            if has_https {
+                                info!("HTTPS API available for {} ({})", device.name, id);
+                            } else {
+                                warn!(
+                                    "HTTPS API not available for {} ({}) — EQ disabled",
+                                    device.name, id
+                                );
+                            }
+                        }
+
                         // For WiiM devices, use proprietary GetControlDeviceInfo for
-                        // accurate volume/mute/name (standard UPnP can report stale mute)
+                        // accurate volume/mute/name and multiroom state.
+                        // Device state is canonical — we read group info from the device,
+                        // not from our database.
                         if device.capabilities.wiim_extended {
                             if let Ok(dev_info) = device.rendering.get_control_device_info().await {
                                 device.volume = dev_info.volume as f64 / 100.0;
                                 device.muted = dev_info.muted;
+                                device.channel = Some(dev_info.channel.clone());
                                 device.name = dev_info
                                     .raw
                                     .get("DeviceName")
                                     .or(dev_info.raw.get("Name"))
                                     .cloned()
                                     .unwrap_or(device.name);
+
+                                // Derive group state from what the device reports
+                                let (group_id, is_master) = derive_group_state(
+                                    &id,
+                                    &dev_info.slave_list,
+                                    &dev_info.raw,
+                                );
+                                if is_master {
+                                    device.is_master = true;
+                                    device.group_id = Some(id.clone());
+                                } else if group_id.is_some() {
+                                    // Slave — resolve master UUID from GetInfoEx
+                                    let resolved_gid = match device.av_transport.get_info_ex().await {
+                                        Ok(info_ex) if !info_ex.master_uuid.is_empty() => {
+                                            Some(info_ex.master_uuid)
+                                        }
+                                        _ => group_id,
+                                    };
+                                    device.group_id = resolved_gid;
+                                }
+
+                                debug!(
+                                    "Device {} multiroom: MultiType={}, SlaveList={}, group_id={:?}, is_master={}",
+                                    id, dev_info.multi_type, dev_info.slave_list,
+                                    device.group_id, device.is_master
+                                );
                             }
                         }
 
-                        // Apply persisted config (enabled state + group membership)
+                        // Apply persisted enabled state only (group state comes from device)
                         if let Some(cfg) = persisted.get(&id) {
                             device.enabled = cfg.enabled;
-                            device.group_id = cfg.group_id.clone();
-                            device.is_master = cfg.is_master;
                         }
 
                         info!(
-                            "Discovered {} device: {} ({}) at {}:{} [enabled={}]",
+                            "Discovered {} device: {} ({}) at {}:{} [enabled={}, group={:?}, master={}]",
                             device.device_type,
                             device.name,
                             id,
                             device.ip,
                             device.port,
                             device.enabled,
+                            device.group_id,
+                            device.is_master,
                         );
 
                         events.publish(
@@ -329,6 +413,9 @@ pub async fn run_discovery(
                         );
 
                         device_manager.register(device);
+                    } else {
+                        // Device already known — refresh group state from device
+                        refresh_group_state(&id, &device_manager, &events).await;
                     }
                 }
                 Err(e) => {
@@ -347,5 +434,99 @@ pub async fn run_discovery(
         known_ids = current_ids;
 
         tokio::time::sleep(interval).await;
+    }
+}
+
+/// Refresh group state for an already-registered device by querying GetControlDeviceInfo
+/// and GetInfoEx. This runs on every discovery cycle for existing devices so we pick up
+/// group changes made by other apps (e.g. the WiiM app).
+async fn refresh_group_state(
+    device_id: &str,
+    device_manager: &DeviceManager,
+    events: &EventBus,
+) {
+    let device = match device_manager.get(device_id) {
+        Some(d) => d,
+        None => return,
+    };
+
+    if !device.capabilities.wiim_extended {
+        return;
+    }
+
+    let dev_info = match device.rendering.get_control_device_info().await {
+        Ok(info) => info,
+        Err(_) => return,
+    };
+
+    let (group_id, is_master) = derive_group_state(device_id, &dev_info.slave_list, &dev_info.raw);
+
+    // For slaves, resolve the actual master device ID from GetInfoEx's MasterUUID.
+    let new_group_id = if is_master {
+        Some(device_id.to_string())
+    } else if group_id.is_some() {
+        // Device is a slave — try to get the master's UUID from GetInfoEx.
+        match device.av_transport.get_info_ex().await {
+            Ok(info_ex) if !info_ex.master_uuid.is_empty() => {
+                Some(info_ex.master_uuid)
+            }
+            _ => group_id,
+        }
+    } else {
+        None
+    };
+
+    // Check if anything changed
+    if device.group_id != new_group_id || device.is_master != is_master {
+        info!(
+            "Group state changed for {} ({}): group={:?}->{:?}, master={}->{}",
+            device.name, device_id, device.group_id, new_group_id, device.is_master, is_master
+        );
+        device_manager.update(device_id, |d| {
+            d.group_id = new_group_id.clone();
+            d.is_master = is_master;
+        });
+
+        // Notify frontend
+        let devices: Vec<serde_json::Value> = device_manager
+            .list_all()
+            .iter()
+            .map(|d| {
+                serde_json::json!({
+                    "id": d.id,
+                    "name": d.name,
+                    "ip": d.ip,
+                    "model": d.model,
+                    "firmware": d.firmware,
+                    "device_type": d.device_type,
+                    "enabled": d.enabled,
+                    "capabilities": {
+                        "av_transport": d.capabilities.av_transport,
+                        "rendering_control": d.capabilities.rendering_control,
+                        "wiim_extended": d.capabilities.wiim_extended,
+                        "https_api": d.capabilities.https_api,
+                    },
+                    "volume": d.volume,
+                    "muted": d.muted,
+                    "source": d.source,
+                    "group_id": d.group_id,
+                    "is_master": d.is_master,
+                })
+            })
+            .collect();
+        events.publish(
+            "devices_changed",
+            &serde_json::json!({ "devices": devices }),
+        );
+    }
+
+    // Also refresh volume/mute while we're at it
+    let new_vol = dev_info.volume as f64 / 100.0;
+    let new_muted = dev_info.muted;
+    if (device.volume - new_vol).abs() > 0.001 || device.muted != new_muted {
+        device_manager.update(device_id, |d| {
+            d.volume = new_vol;
+            d.muted = new_muted;
+        });
     }
 }

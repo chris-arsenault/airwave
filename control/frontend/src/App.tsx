@@ -42,6 +42,7 @@ function AppContent() {
         shuffle_mode: string
         repeat_mode: string
         session?: SessionInfo | null
+        allowed_actions?: string[] | null
       }
       const activeId = useDeviceStore.getState().activeDeviceId
       if (state.target_id !== activeId) return
@@ -53,6 +54,7 @@ function AppContent() {
         session,
         shuffleMode: session ? session.shuffle_mode : state.shuffle_mode,
         repeatMode: session ? session.repeat_mode : state.repeat_mode,
+        allowedActions: state.allowed_actions ?? [],
         ...(state.current_track ? { currentTrack: state.current_track } : {}),
       })
     },
@@ -93,6 +95,9 @@ function AppContent() {
       setSession(null)
       setPlaying(false)
       setCurrentTrack(null)
+    },
+    sleep_timer_expired: () => {
+      setPlaying(false)
     },
   })
 

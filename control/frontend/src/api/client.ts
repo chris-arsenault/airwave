@@ -21,6 +21,11 @@ export const api = {
     request('/devices/' + id + '/mute', { method: 'POST' }),
   setEnabled: (id: string, enabled: boolean) =>
     request('/devices/' + id + '/enabled', { method: 'POST', body: JSON.stringify({ enabled }) }),
+  renameDevice: (id: string, name: string) =>
+    request('/devices/' + id + '/name', { method: 'POST', body: JSON.stringify({ name }) }),
+  getChannel: (id: string) => request<{ channel: string }>(`/devices/${id}/channel`),
+  setChannel: (id: string, channel: string) =>
+    request('/devices/' + id + '/channel', { method: 'POST', body: JSON.stringify({ channel }) }),
 
   // Library
   browse: (id = '0', start = 0, count = 0) =>
@@ -42,6 +47,12 @@ export const api = {
     request(`/playback/${targetId}/prev`, { method: 'POST' }),
   seek: (targetId: string, positionSeconds: number) =>
     request(`/playback/${targetId}/seek`, { method: 'POST', body: JSON.stringify({ position_seconds: positionSeconds }) }),
+  seekForward: (targetId: string) =>
+    request(`/playback/${targetId}/seek-forward`, { method: 'POST' }),
+  seekBackward: (targetId: string) =>
+    request(`/playback/${targetId}/seek-backward`, { method: 'POST' }),
+  rateTrack: (targetId: string, trackId: string, rating: number) =>
+    request(`/playback/${targetId}/rate`, { method: 'POST', body: JSON.stringify({ track_id: trackId, rating }) }),
   setShuffle: (targetId: string, mode: string) =>
     request(`/playback/${targetId}/shuffle`, { method: 'POST', body: JSON.stringify({ mode }) }),
   setRepeat: (targetId: string, mode: string) =>
@@ -67,6 +78,8 @@ export const api = {
     request(`/playback/${targetId}/queue/${index}`, { method: 'DELETE' }),
   clearQueue: (targetId: string) =>
     request(`/playback/${targetId}/queue`, { method: 'DELETE' }),
+  moveInQueue: (targetId: string, fromIndex: number, toIndex: number) =>
+    request(`/playback/${targetId}/queue/move`, { method: 'POST', body: JSON.stringify({ from_index: fromIndex, to_index: toIndex }) }),
 
   // Playlists
   getPlaylists: () => request<Playlist[]>('/playlists'),
@@ -90,6 +103,40 @@ export const api = {
   bulkRenameArtist: (from: string, to: string, field = 'both') =>
     request<BulkResult>('/library/bulk/rename-artist', { method: 'POST', body: JSON.stringify({ from, to, field }) }),
 
+  // Sleep timer
+  setSleepTimer: (id: string, minutes: number) =>
+    request('/devices/' + id + '/sleep-timer', { method: 'POST', body: JSON.stringify({ minutes }) }),
+  getSleepTimer: (id: string) => request<SleepTimerState>(`/devices/${id}/sleep-timer`),
+  cancelSleepTimer: (id: string) =>
+    request('/devices/' + id + '/sleep-timer', { method: 'DELETE' }),
+
+  // Device settings (HTTPS API)
+  switchSource: (id: string, source: string) =>
+    request('/devices/' + id + '/source', { method: 'POST', body: JSON.stringify({ source }) }),
+  getWifiStatus: (id: string) => request<WifiStatus>(`/devices/${id}/wifi`),
+
+  // EQ
+  getEqState: (id: string) => request<EqState>(`/eq/${id}/state`),
+  getEqPresets: (id: string) => request<{ presets: string[] }>(`/eq/${id}/presets`),
+  loadEqPreset: (id: string, preset: string) =>
+    request<EqState>(`/eq/${id}/load`, { method: 'POST', body: JSON.stringify({ preset }) }),
+  enableEq: (id: string) =>
+    request(`/eq/${id}/enable`, { method: 'POST' }),
+  disableEq: (id: string) =>
+    request(`/eq/${id}/disable`, { method: 'POST' }),
+  setEqBand: (id: string, index: number, value: number) =>
+    request(`/eq/${id}/band`, { method: 'POST', body: JSON.stringify({ index, value }) }),
+  saveEqPreset: (id: string, name: string) =>
+    request(`/eq/${id}/save`, { method: 'POST', body: JSON.stringify({ name }) }),
+  deleteEqPreset: (id: string, name: string) =>
+    request(`/eq/${id}/presets/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  getBalance: (id: string) => request<{ balance: number }>(`/eq/${id}/balance`),
+  setBalance: (id: string, balance: number) =>
+    request(`/eq/${id}/balance`, { method: 'POST', body: JSON.stringify({ balance }) }),
+  getCrossfade: (id: string) => request<{ enabled: boolean }>(`/eq/${id}/crossfade`),
+  setCrossfade: (id: string, enabled: boolean) =>
+    request(`/eq/${id}/crossfade`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+
   // Health
   health: () => request<{ status: string }>('/health'),
 
@@ -102,6 +149,7 @@ export interface DeviceCapabilities {
   av_transport: boolean
   rendering_control: boolean
   wiim_extended: boolean
+  https_api: boolean
 }
 
 export interface Device {
@@ -115,6 +163,7 @@ export interface Device {
   capabilities: DeviceCapabilities
   volume: number
   muted: boolean
+  channel: string | null
   source: string | null
   group_id: string | null
   is_master: boolean
@@ -185,6 +234,11 @@ export interface PlaybackState {
   elapsed_seconds: number
   duration_seconds: number
   session?: SessionInfo | null
+  allowed_actions?: string[] | null
+}
+
+export interface SleepTimerState {
+  remaining_seconds: number | null
 }
 
 export interface QueueState {
@@ -230,4 +284,24 @@ export interface Playlist {
 
 export interface PlaylistDetail extends Playlist {
   tracks: { track_id: string; position: number }[]
+}
+
+export interface EqBand {
+  index: number
+  param_name: string
+  value: number
+}
+
+export interface EqState {
+  enabled: boolean
+  preset_name: string
+  bands: EqBand[]
+  channel_mode: string | null
+  source_name: string | null
+}
+
+export interface WifiStatus {
+  source: string | null
+  rssi: number | null
+  ssid: string | null
 }

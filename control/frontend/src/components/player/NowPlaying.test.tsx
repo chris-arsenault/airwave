@@ -18,9 +18,15 @@ vi.mock('../../api/client', () => ({
     next: vi.fn(() => Promise.resolve()),
     prev: vi.fn(() => Promise.resolve()),
     seek: vi.fn(() => Promise.resolve()),
+    seekForward: vi.fn(() => Promise.resolve()),
+    seekBackward: vi.fn(() => Promise.resolve()),
     setVolume: vi.fn(() => Promise.resolve()),
     setShuffle: vi.fn(() => Promise.resolve()),
     setRepeat: vi.fn(() => Promise.resolve()),
+    rateTrack: vi.fn(() => Promise.resolve()),
+    getSleepTimer: vi.fn(() => Promise.resolve({ remaining_seconds: null })),
+    setSleepTimer: vi.fn(() => Promise.resolve()),
+    cancelSleepTimer: vi.fn(() => Promise.resolve()),
     artUrl: vi.fn((id: string) => `/api/art/${id}`),
   },
 }))
@@ -33,8 +39,8 @@ function makeDevice(overrides: Partial<Device> = {}): Device {
   return {
     id: 'dev-1', name: 'Living Room', ip: '192.168.1.10', model: 'WiiM Pro',
     firmware: '4.8.1', device_type: 'wiim', enabled: true,
-    capabilities: { av_transport: true, rendering_control: true, wiim_extended: true },
-    volume: 0.5, muted: false, source: 'wifi',
+    capabilities: { av_transport: true, rendering_control: true, wiim_extended: true, https_api: true },
+    volume: 0.5, muted: false, channel: null, source: 'wifi',
     group_id: null, is_master: false, ...overrides,
   }
 }

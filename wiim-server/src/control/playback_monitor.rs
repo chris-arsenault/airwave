@@ -23,9 +23,15 @@ pub async fn run_playback_monitor(
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(2));
     let mut last_states: HashMap<String, String> = HashMap::new();
+    let mut initialized: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     loop {
         interval.tick().await;
+
+        // Prune initialized set — re-sync settings if a device reconnects
+        let current_device_ids: std::collections::HashSet<String> =
+            devices.list_all().iter().map(|d| d.id.clone()).collect();
+        initialized.retain(|id| current_device_ids.contains(id));
 
         for device in devices.list_all() {
             if !device.capabilities.av_transport {
@@ -35,6 +41,26 @@ pub async fn run_playback_monitor(
             // Skip slaves — only monitor master devices (slaves follow via firmware).
             if device.group_id.is_some() && !device.is_master {
                 continue;
+            }
+
+            // Phase 5: On first tick per device, sync initial transport settings.
+            if initialized.insert(device.id.clone()) {
+                if let Ok(settings) = device.av_transport.get_transport_settings().await {
+                    let (shuffle, repeat) = parse_upnp_play_mode(&settings.play_mode);
+                    // Apply to session if active, else to queue.
+                    let session_lock = sessions.get_or_create(&device.id);
+                    let has_session = session_lock.read().is_some();
+                    if !has_session {
+                        let queue = queues.get_or_create(&device.id);
+                        let mut q = queue.write();
+                        q.set_shuffle_mode(shuffle.to_string());
+                        q.set_repeat_mode(repeat.to_string());
+                    }
+                    debug!(
+                        "Synced initial transport settings for {}: {}",
+                        device.id, settings.play_mode
+                    );
+                }
             }
 
             // Query device state once per tick.
@@ -84,6 +110,13 @@ pub async fn run_playback_monitor(
                 .await;
             }
 
+            // Phase 4: Fetch allowed transport actions for SSE broadcast.
+            let allowed_actions = device
+                .av_transport
+                .get_current_transport_actions()
+                .await
+                .ok();
+
             // Broadcast full playback state over SSE.
             broadcast_playback_state(
                 &device,
@@ -95,6 +128,7 @@ pub async fn run_playback_monitor(
                 playing,
                 elapsed,
                 duration,
+                allowed_actions.as_ref(),
             );
         }
     }
@@ -290,6 +324,7 @@ fn broadcast_playback_state(
     playing: bool,
     elapsed: f64,
     duration: f64,
+    allowed_actions: Option<&Vec<String>>,
 ) {
     let session_guard = session_lock.read();
     let (current_track, pos, queue_length, shuffle_mode, repeat_mode, session_info) =
@@ -361,6 +396,7 @@ fn broadcast_playback_state(
             "elapsed_seconds": elapsed,
             "duration_seconds": duration,
             "session": session_info,
+            "allowed_actions": allowed_actions,
         }),
     );
 }
@@ -371,6 +407,17 @@ fn format_duration(seconds: f64) -> String {
     let m = (total % 3600) / 60;
     let s = total % 60;
     format!("{:02}:{:02}:{:02}", h, m, s)
+}
+
+/// Map UPnP PlayMode to app shuffle/repeat modes.
+fn parse_upnp_play_mode(mode: &str) -> (&str, &str) {
+    match mode {
+        "SHUFFLE" | "SHUFFLE_NOREPEAT" | "RANDOM" => ("on", "off"),
+        "REPEAT_ONE" => ("off", "track"),
+        "REPEAT_ALL" => ("off", "all"),
+        "SHUFFLE_REPEAT_ALL" => ("on", "all"),
+        _ => ("off", "off"), // NORMAL or unknown
+    }
 }
 
 fn parse_duration(s: &str) -> f64 {

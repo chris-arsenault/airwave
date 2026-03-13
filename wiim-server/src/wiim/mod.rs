@@ -1,5 +1,6 @@
 pub mod device;
 pub mod discovery;
+pub mod https_api;
 #[allow(dead_code)]
 pub mod probe;
 #[allow(dead_code)]

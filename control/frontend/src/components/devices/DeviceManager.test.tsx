@@ -11,6 +11,9 @@ vi.mock('../../api/client', () => ({
     createGroup: vi.fn(() => Promise.resolve()),
     dissolveGroup: vi.fn(() => Promise.resolve()),
     setEnabled: vi.fn(() => Promise.resolve()),
+    renameDevice: vi.fn(() => Promise.resolve()),
+    getChannel: vi.fn(() => Promise.resolve({ channel: 'Stereo' })),
+    setChannel: vi.fn(() => Promise.resolve()),
   },
 }))
 
@@ -23,9 +26,10 @@ function makeDevice(overrides: Partial<Device> = {}): Device {
     firmware: '4.8.1',
     device_type: 'wiim',
     enabled: true,
-    capabilities: { av_transport: true, rendering_control: true, wiim_extended: true },
+    capabilities: { av_transport: true, rendering_control: true, wiim_extended: true, https_api: true },
     volume: 0.5,
     muted: false,
+    channel: null,
     source: 'wifi',
     group_id: null,
     is_master: false,

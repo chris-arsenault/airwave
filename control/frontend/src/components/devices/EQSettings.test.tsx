@@ -1,13 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { renderWithProviders } from '../../test-utils'
 import { EQSettings } from './EQSettings'
 import { useDeviceStore } from '../../stores/deviceStore'
 import type { Device } from '../../api/client'
 
+const { mockSwitchSource } = vi.hoisted(() => ({
+  mockSwitchSource: vi.fn(() => Promise.resolve()),
+}))
+
 vi.mock('../../api/client', () => ({
   api: {
-    getDevices: vi.fn(() => Promise.resolve([])),
+    getEqState: vi.fn(() =>
+      Promise.resolve({ enabled: true, preset_name: 'Rock', bands: [], channel_mode: 'Stereo', source_name: 'wifi' }),
+    ),
+    getEqPresets: vi.fn(() =>
+      Promise.resolve({ presets: ['Flat', 'Rock', 'Pop', 'Jazz', 'Classical'] }),
+    ),
+    getBalance: vi.fn(() => Promise.resolve({ balance: 0 })),
+    getCrossfade: vi.fn(() => Promise.resolve({ enabled: true })),
+    getWifiStatus: vi.fn(() => Promise.resolve({ source: 'wifi', rssi: -55, ssid: 'HomeNet' })),
+    switchSource: mockSwitchSource,
+    setBalance: vi.fn(() => Promise.resolve()),
+    setCrossfade: vi.fn(() => Promise.resolve()),
+    loadEqPreset: vi.fn(() => Promise.resolve({})),
+    enableEq: vi.fn(() => Promise.resolve()),
+    disableEq: vi.fn(() => Promise.resolve()),
   },
 }))
 
@@ -15,8 +33,8 @@ function makeDevice(overrides: Partial<Device> = {}): Device {
   return {
     id: 'dev-1', name: 'Living Room', ip: '192.168.1.10', model: 'WiiM Pro',
     firmware: '4.8.1', device_type: 'wiim', enabled: true,
-    capabilities: { av_transport: true, rendering_control: true, wiim_extended: true },
-    volume: 0.5, muted: false, source: 'wifi',
+    capabilities: { av_transport: true, rendering_control: true, wiim_extended: true, https_api: true },
+    volume: 0.5, muted: false, channel: null, source: 'wifi',
     group_id: null, is_master: false, ...overrides,
   }
 }
@@ -34,41 +52,90 @@ describe('EQSettings', () => {
 
   it('shows device info when device is selected', () => {
     useDeviceStore.setState({
-      devices: [makeDevice({ id: 'a', name: 'Kitchen', ip: '10.0.0.5', model: 'WiiM Pro', firmware: '4.8.1' })],
+      devices: [makeDevice({ id: 'a', name: 'Kitchen', ip: '10.0.0.5' })],
       activeDeviceId: 'a',
     })
     renderWithProviders(<EQSettings />)
     expect(screen.getByText('Kitchen')).toBeInTheDocument()
   })
 
-  it('renders EQ Presets and Parametric EQ tabs', () => {
+  it('shows EQ unavailable message when https_api is false', () => {
+    useDeviceStore.setState({
+      devices: [makeDevice({ id: 'a', capabilities: { av_transport: true, rendering_control: true, wiim_extended: true, https_api: false } })],
+      activeDeviceId: 'a',
+    })
+    renderWithProviders(<EQSettings />)
+    expect(screen.getByText('EQ Unavailable')).toBeInTheDocument()
+  })
+
+  it('renders three tabs when https_api is available', () => {
     useDeviceStore.setState({
       devices: [makeDevice({ id: 'a' })],
       activeDeviceId: 'a',
     })
     renderWithProviders(<EQSettings />)
-    expect(screen.getByText('EQ Presets')).toBeInTheDocument()
-    expect(screen.getByText('Parametric EQ')).toBeInTheDocument()
+    expect(screen.getByText('Presets')).toBeInTheDocument()
+    expect(screen.getByText('EQ Bands')).toBeInTheDocument()
+    expect(screen.getByText('Audio')).toBeInTheDocument()
   })
 
-  it('shows default EQ presets after loading', async () => {
+  it('loads and displays EQ presets', async () => {
     useDeviceStore.setState({
       devices: [makeDevice({ id: 'a' })],
       activeDeviceId: 'a',
     })
-    // Mock fetch for the /api/eq/.../presets endpoint
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ presets: ['Flat', 'Rock', 'Pop', 'Jazz', 'Classical', 'Bass Boost', 'Treble Boost', 'Vocal'] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
     renderWithProviders(<EQSettings />)
     await waitFor(() => {
       expect(screen.getByText('Flat')).toBeInTheDocument()
-      expect(screen.getByText('Rock')).toBeInTheDocument()
+      expect(screen.getAllByText('Rock').length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('Jazz')).toBeInTheDocument()
-      expect(screen.getByText('Classical')).toBeInTheDocument()
+    })
+  })
+
+  it('shows input source buttons on Audio tab', async () => {
+    useDeviceStore.setState({
+      devices: [makeDevice({ id: 'a' })],
+      activeDeviceId: 'a',
+    })
+    renderWithProviders(<EQSettings />)
+    fireEvent.click(screen.getByText('Audio'))
+    await waitFor(() => {
+      expect(screen.getByText('Input Source')).toBeInTheDocument()
+      expect(screen.getByText('WiFi')).toBeInTheDocument()
+      expect(screen.getByText('Bluetooth')).toBeInTheDocument()
+      expect(screen.getByText('Optical')).toBeInTheDocument()
+      expect(screen.getByText('Line In')).toBeInTheDocument()
+    })
+  })
+
+  it('calls switchSource when a source button is clicked', async () => {
+    useDeviceStore.setState({
+      devices: [makeDevice({ id: 'a' })],
+      activeDeviceId: 'a',
+    })
+    renderWithProviders(<EQSettings />)
+    fireEvent.click(screen.getByText('Audio'))
+    await waitFor(() => {
+      expect(screen.getByText('Bluetooth')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Bluetooth'))
+    await waitFor(() => {
+      expect(mockSwitchSource).toHaveBeenCalledWith('a', 'bluetooth')
+    })
+  })
+
+  it('shows WiFi signal strength and SSID on Audio tab', async () => {
+    useDeviceStore.setState({
+      devices: [makeDevice({ id: 'a' })],
+      activeDeviceId: 'a',
+    })
+    renderWithProviders(<EQSettings />)
+    fireEvent.click(screen.getByText('Audio'))
+    await waitFor(() => {
+      expect(screen.getByText('WiFi Signal')).toBeInTheDocument()
+      expect(screen.getByText(/HomeNet/)).toBeInTheDocument()
+      expect(screen.getByText(/-55 dBm/)).toBeInTheDocument()
+      expect(screen.getByText('Good')).toBeInTheDocument()
     })
   })
 })

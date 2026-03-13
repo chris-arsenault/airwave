@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type QueueTrack } from '../../api/client'
 import { useDeviceStore } from '../../stores/deviceStore'
@@ -7,6 +8,8 @@ export function QueueView() {
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
   const currentTrack = usePlayerStore((s) => s.currentTrack)
   const queryClient = useQueryClient()
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['queue', activeDeviceId],
@@ -26,6 +29,12 @@ export function QueueView() {
     await api.clearQueue(activeDeviceId)
     queryClient.invalidateQueries({ queryKey: ['queue', activeDeviceId] })
   }
+
+  const handleDrop = useCallback(async (fromIndex: number, toIndex: number) => {
+    if (!activeDeviceId || fromIndex === toIndex) return
+    await api.moveInQueue(activeDeviceId, fromIndex, toIndex)
+    queryClient.invalidateQueries({ queryKey: ['queue', activeDeviceId] })
+  }, [activeDeviceId, queryClient])
 
   const tracks = data?.tracks ?? []
   const position = data?.position ?? 0
@@ -69,7 +78,18 @@ export function QueueView() {
               track={track}
               index={i}
               isPlaying={i === position && currentTrack?.id === track.id}
+              isDragging={dragIndex === i}
+              isDragOver={dragOverIndex === i}
               onRemove={() => handleRemove(i)}
+              onDragStart={() => setDragIndex(i)}
+              onDragOver={() => setDragOverIndex(i)}
+              onDragEnd={() => {
+                if (dragIndex !== null && dragOverIndex !== null && dragIndex !== dragOverIndex) {
+                  handleDrop(dragIndex, dragOverIndex)
+                }
+                setDragIndex(null)
+                setDragOverIndex(null)
+              }}
             />
           ))}
         </div>
@@ -88,20 +108,37 @@ function QueueItem({
   track,
   index,
   isPlaying,
+  isDragging,
+  isDragOver,
   onRemove,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
 }: {
   track: QueueTrack
   index: number
   isPlaying: boolean
+  isDragging: boolean
+  isDragOver: boolean
   onRemove: () => void
+  onDragStart: () => void
+  onDragOver: () => void
+  onDragEnd: () => void
 }) {
   return (
     <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={(e) => { e.preventDefault(); onDragOver() }}
+      onDragEnd={onDragEnd}
       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
         isPlaying ? 'bg-[var(--color-accent)]/10' : 'hover:bg-[var(--color-surface-hover)]'
-      }`}
+      } ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-[var(--color-accent)]' : ''}`}
     >
-      <div className={`w-8 text-center text-xs shrink-0 ${isPlaying ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>
+      <div className="cursor-grab text-white/20 hover:text-white/50 shrink-0">
+        <GripIcon />
+      </div>
+      <div className={`w-6 text-center text-xs shrink-0 ${isPlaying ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>
         {isPlaying ? (
           <PlayingIndicator />
         ) : (
@@ -144,6 +181,19 @@ function XIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
+}
+
+function GripIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="9" cy="5" r="1.5" />
+      <circle cx="15" cy="5" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="19" r="1.5" />
+      <circle cx="15" cy="19" r="1.5" />
     </svg>
   )
 }

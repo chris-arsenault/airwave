@@ -12,6 +12,8 @@ pub struct DeviceResponse {
     pub capabilities: DeviceCapabilitiesResponse,
     pub volume: f64,
     pub muted: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<String>,
     pub source: Option<String>,
     pub group_id: Option<String>,
     pub is_master: bool,
@@ -22,6 +24,7 @@ pub struct DeviceCapabilitiesResponse {
     pub av_transport: bool,
     pub rendering_control: bool,
     pub wiim_extended: bool,
+    pub https_api: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -98,6 +101,8 @@ pub struct PlaybackStateResponse {
     pub duration_seconds: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<SessionInfoResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_actions: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -168,6 +173,38 @@ pub struct SessionPlayRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct DeviceNameRequest {
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChannelRequest {
+    pub channel: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SleepTimerRequest {
+    pub minutes: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SleepTimerResponse {
+    pub remaining_seconds: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct QueueMoveRequest {
+    pub from_index: usize,
+    pub to_index: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RateTrackRequest {
+    pub track_id: String,
+    pub rating: u8,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateGroupRequest {
     pub master_id: String,
     pub slave_ids: Vec<String>,
@@ -176,6 +213,32 @@ pub struct CreateGroupRequest {
 #[derive(Debug, Deserialize)]
 pub struct PresetRequest {
     pub preset: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EqBandRequest {
+    pub index: u32,
+    pub value: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SavePresetRequest {
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BalanceRequest {
+    pub balance: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CrossfadeRequest {
+    pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SourceRequest {
+    pub source: String,
 }
 
 #[derive(Debug, Serialize)]

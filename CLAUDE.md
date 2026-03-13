@@ -47,7 +47,9 @@ docker compose up -d
 - No database for library, no transcoding — files served as-is
 - `Arc<RwLock<Library>>` (parking_lot) — never hold read guard across await
 - Object IDs: `ar{n}` artists, `aa{n}` artist-albums, `av{n}` album-view, `gr{n}` genres, `t{n}` tracks
-- UPnP SOAP client for WiiM device communication (AVTransport, RenderingControl)
+- Two device communication channels:
+  - **UPnP SOAP** (port varies per device): AVTransport, RenderingControl, PlayQueue — used for playback control and state queries
+  - **HTTPS API** (port 443, self-signed certs): EQ, source switching, multiroom grouping, device status — Linkplay proprietary `httpapi.asp?command=...`
 - SSDP discovery for WiiM MediaRenderer devices on the local network
 - Server-side queue engine with Poweramp-style shuffle/repeat modes
 - Session-based playback with group/track shuffle, gapless pre-fetch, auto-advance
@@ -66,7 +68,8 @@ docker compose up -d
 ## Key Constraints
 
 - Server needs host networking for SSDP multicast device discovery
-- WiiM group commands must go through the master device (slave-side leave doesn't persist)
+- Multiroom grouping uses HTTPS API, NOT SOAP (see `wiim-server/docs/WIIM-PROTOCOL.md`)
+- Device state is canonical — always read from device, never persist-and-restore group state
 - Music volume mounted read-write when metadata editing is enabled
 - No auth — this is a home network appliance
 
