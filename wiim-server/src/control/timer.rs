@@ -88,7 +88,14 @@ pub async fn set_sleep_timer(
     if !state.devices.contains(&id) {
         return Err(StatusCode::NOT_FOUND);
     }
-    state.sleep_timers.set(id, body.minutes, state.clone());
+    let remaining = body.minutes as u64 * 60;
+    state
+        .sleep_timers
+        .set(id.clone(), body.minutes, state.clone());
+    state.events.publish(
+        "sleep_timer_changed",
+        &serde_json::json!({ "device_id": id, "remaining_seconds": remaining }),
+    );
     Ok(StatusCode::OK)
 }
 
@@ -112,5 +119,9 @@ pub async fn cancel_sleep_timer(
         return Err(StatusCode::NOT_FOUND);
     }
     state.sleep_timers.cancel(&id);
+    state.events.publish(
+        "sleep_timer_changed",
+        &serde_json::json!({ "device_id": id, "remaining_seconds": null }),
+    );
     Ok(StatusCode::OK)
 }

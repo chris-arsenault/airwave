@@ -104,8 +104,25 @@ function AppContent() {
       setPlaying(false)
       usePlayerStore.setState({ sleepRemaining: null })
     },
-    queue_changed: () => {
-      qc.invalidateQueries({ queryKey: ['queue'] })
+    sleep_timer_changed: (data) => {
+      const { remaining_seconds } = data as { device_id: string; remaining_seconds: number | null }
+      const activeId = useDeviceStore.getState().activeDeviceId
+      const { device_id } = data as { device_id: string }
+      if (device_id !== activeId) return
+      usePlayerStore.setState({ sleepRemaining: remaining_seconds })
+    },
+    queue_changed: (data) => {
+      const { device_id, tracks, position } = data as { device_id: string; tracks?: unknown[]; position?: number }
+      if (tracks !== undefined) {
+        // Full payload — update cache directly
+        const activeId = useDeviceStore.getState().activeDeviceId
+        if (device_id === activeId) {
+          qc.setQueryData(['queue', activeId], { tracks, position })
+        }
+      } else {
+        // Lightweight event — invalidate to refetch
+        qc.invalidateQueries({ queryKey: ['queue'] })
+      }
     },
   })
 

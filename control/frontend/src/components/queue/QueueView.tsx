@@ -17,7 +17,6 @@ export function QueueView() {
     queryKey: ['queue', activeDeviceId],
     queryFn: () => api.getQueue(activeDeviceId!),
     enabled: !!activeDeviceId,
-    refetchInterval: 5000,
   })
 
   const handleRemove = async (index: number) => {

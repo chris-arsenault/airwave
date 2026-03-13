@@ -410,6 +410,7 @@ pub async fn add_to_queue(
 
     let queue = state.queues.get_or_create(&target);
     queue.write().add_tracks(tracks, &body.position);
+    publish_queue_changed(&state, &target);
     StatusCode::OK
 }
 
@@ -423,6 +424,7 @@ pub async fn remove_from_queue(
         .unwrap_or(target.clone());
     let queue = state.queues.get_or_create(&target);
     queue.write().remove_track(index);
+    publish_queue_changed(&state, &target);
     StatusCode::OK
 }
 
@@ -436,6 +438,7 @@ pub async fn clear_queue(
         .unwrap_or(target.clone());
     let queue = state.queues.get_or_create(&target);
     queue.write().clear();
+    publish_queue_changed(&state, &target);
     StatusCode::OK
 }
 
@@ -476,10 +479,7 @@ pub async fn move_in_queue(
     if !moved {
         return Err(StatusCode::BAD_REQUEST);
     }
-    state.events.publish(
-        "queue_changed",
-        &serde_json::json!({ "device_id": target }),
-    );
+    publish_queue_changed(&state, &target);
     Ok(StatusCode::OK)
 }
 
@@ -498,6 +498,20 @@ pub async fn rate_track(
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
     Ok(StatusCode::OK)
+}
+
+/// Publish the full queue state so frontends can update without re-fetching.
+fn publish_queue_changed(state: &ControlState, target_id: &str) {
+    let queue = state.queues.get_or_create(target_id);
+    let q = queue.read();
+    state.events.publish(
+        "queue_changed",
+        &serde_json::json!({
+            "device_id": target_id,
+            "tracks": q.tracks(),
+            "position": q.position(),
+        }),
+    );
 }
 
 fn parse_duration(s: &str) -> f64 {

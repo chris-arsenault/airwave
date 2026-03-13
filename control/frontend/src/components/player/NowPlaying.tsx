@@ -37,20 +37,28 @@ export function NowPlaying({ open, onClose }: Props) {
   const setSleepRemaining = usePlayerStore((s) => s.setSleepRemaining)
   const [sleepTimerOpen, setSleepTimerOpen] = useState(false)
 
-  // Poll sleep timer state
+  // Fetch sleep timer state once when device changes (SSE handles updates after that)
   useEffect(() => {
     if (!activeDeviceId) return
     let cancelled = false
-    const poll = async () => {
-      try {
-        const res = await api.getSleepTimer(activeDeviceId)
-        if (!cancelled) setSleepRemaining(res.remaining_seconds)
-      } catch { /* ignore */ }
-    }
-    poll()
-    const interval = setInterval(poll, 10000)
-    return () => { cancelled = true; clearInterval(interval) }
+    api.getSleepTimer(activeDeviceId).then((res) => {
+      if (!cancelled) setSleepRemaining(res.remaining_seconds)
+    }).catch(() => {})
+    return () => { cancelled = true }
   }, [activeDeviceId, setSleepRemaining])
+
+  // Local countdown — decrement sleepRemaining every second so the UI ticks without polling
+  useEffect(() => {
+    if (sleepRemaining == null || sleepRemaining <= 0) return
+    const interval = setInterval(() => {
+      usePlayerStore.setState((s) => ({
+        sleepRemaining: s.sleepRemaining != null && s.sleepRemaining > 1
+          ? s.sleepRemaining - 1
+          : s.sleepRemaining,
+      }))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [sleepRemaining != null && sleepRemaining > 0])
 
   const handlePlayPause = useCallback(async () => {
     if (!activeDeviceId) return
