@@ -1,4 +1,4 @@
-import { useState, type ImgHTMLAttributes } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type LibraryItem, type ContainerInfo } from '../../api/client'
 import { useDeviceStore } from '../../stores/deviceStore'

@@ -13,7 +13,7 @@ export function usePlaybackPolling() {
   const setDuration = usePlayerStore((s) => s.setDuration)
   const setShuffleMode = usePlayerStore((s) => s.setShuffleMode)
   const setRepeatMode = usePlayerStore((s) => s.setRepeatMode)
-  const intervalRef = useRef<ReturnType<typeof setInterval>>()
+  const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined)
 
   useEffect(() => {
     if (!activeDeviceId) return
