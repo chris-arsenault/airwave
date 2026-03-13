@@ -4,6 +4,7 @@ use crate::media::art::ArtCache;
 use crate::media::library::SharedLibrary;
 use crate::wiim::device::DeviceManager;
 
+use super::device_config::DeviceConfigStore;
 use super::events::EventBus;
 use super::playlists::PlaylistStore;
 use super::queue::QueueManager;
@@ -12,6 +13,7 @@ use super::session::SessionManager;
 #[derive(Clone)]
 pub struct ControlState {
     pub devices: Arc<DeviceManager>,
+    pub device_config: Arc<DeviceConfigStore>,
     pub library: SharedLibrary,
     pub events: EventBus,
     pub playlists: Arc<PlaylistStore>,

@@ -49,6 +49,7 @@ pub async fn set_enabled(
         return Err(StatusCode::NOT_FOUND);
     }
     state.devices.update(&id, |d| d.enabled = body.enabled);
+    state.device_config.save_enabled(&id, body.enabled);
     state.events.publish(
         "device_state",
         &serde_json::json!({ "device_id": id, "enabled": body.enabled }),

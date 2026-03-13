@@ -8,6 +8,7 @@ use tokio::net::UdpSocket;
 use tracing::{debug, info, warn};
 
 use super::device::{DeviceCapabilities, DeviceManager, DeviceParams, ServiceUrls, WiimDevice};
+use crate::control::device_config::DeviceConfigStore;
 use crate::control::events::EventBus;
 
 const SSDP_MULTICAST: Ipv4Addr = Ipv4Addr::new(239, 255, 255, 250);
@@ -210,6 +211,7 @@ async fn probe_rendering_control(device: &WiimDevice) -> bool {
 /// Run periodic SSDP discovery of MediaRenderer devices.
 pub async fn run_discovery(
     device_manager: Arc<DeviceManager>,
+    device_config: Arc<DeviceConfigStore>,
     events: EventBus,
     bind_ip: Ipv4Addr,
     interval: Duration,
@@ -218,6 +220,9 @@ pub async fn run_discovery(
         .timeout(Duration::from_secs(5))
         .build()
         .expect("failed to build discovery HTTP client");
+
+    // Load persisted device configs
+    let persisted = device_config.load_all();
 
     // Initial delay to let the server start up
     tokio::time::sleep(Duration::from_secs(2)).await;
@@ -296,9 +301,19 @@ pub async fn run_discovery(
                             }
                         }
 
+                        // Apply persisted config (enabled state)
+                        if let Some(cfg) = persisted.get(&id) {
+                            device.enabled = cfg.enabled;
+                        }
+
                         info!(
-                            "Discovered {} device: {} ({}) at {}:{}",
-                            device.device_type, device.name, id, device.ip, device.port
+                            "Discovered {} device: {} ({}) at {}:{} [enabled={}]",
+                            device.device_type,
+                            device.name,
+                            id,
+                            device.ip,
+                            device.port,
+                            device.enabled,
                         );
 
                         events.publish(

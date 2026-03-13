@@ -98,6 +98,10 @@ async fn main() {
     // Control API state
     let device_manager = Arc::new(wiim::device::DeviceManager::new());
     let event_bus = control::events::EventBus::new();
+    let device_config_db = data_dir.join("device_config.db");
+    let device_config_store = Arc::new(control::device_config::DeviceConfigStore::new(
+        device_config_db.to_str().unwrap_or("device_config.db"),
+    ));
     let playlist_db = data_dir.join("playlists.db");
     let playlist_store = Arc::new(control::playlists::PlaylistStore::new(
         playlist_db.to_str().unwrap_or("playlists.db"),
@@ -108,6 +112,7 @@ async fn main() {
 
     let control_state = control::state::ControlState {
         devices: device_manager.clone(),
+        device_config: device_config_store.clone(),
         library: library.clone(),
         events: event_bus.clone(),
         playlists: playlist_store,
@@ -275,10 +280,12 @@ async fn main() {
 
     // SSDP discovery (find WiiM MediaRenderer devices)
     let disc_devices = device_manager.clone();
+    let disc_config = device_config_store.clone();
     let disc_events = event_bus.clone();
     let disc_ip = cfg.effective_ip();
     tokio::spawn(wiim::discovery::run_discovery(
         disc_devices,
+        disc_config,
         disc_events,
         disc_ip,
         Duration::from_secs(30),

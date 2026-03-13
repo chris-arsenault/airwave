@@ -219,7 +219,7 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
     // (album_artist, album) -> album_container_id under album artist view
     let mut album_artist_album_ids: BTreeMap<(String, String), ObjectId> = BTreeMap::new();
     // album_name -> album_container_id under albums view (keyed by (album_artist, album))
-    let mut album_view_ids: BTreeMap<(String, String), ObjectId> = BTreeMap::new();
+    let mut album_view_ids: BTreeMap<String, ObjectId> = BTreeMap::new();
     // genre_name -> genre_container_id
     let mut genre_ids: BTreeMap<String, ObjectId> = BTreeMap::new();
     // Collect all tracks for sorting into "All Tracks" at the end
@@ -355,17 +355,13 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
 
             // === Albums View: vc_albums → Album → Track ===
 
-            let album_view_key = (meta.album_artist.clone(), meta.album.clone());
+            let album_view_key = meta.album.clone();
             let album_view_id = album_view_ids
                 .entry(album_view_key)
                 .or_insert_with(|| {
                     let id = format!("av{}", next_id);
                     next_id += 1;
-                    let title = if meta.album_artist != "Unknown Artist" {
-                        format!("{} — {}", meta.album_artist, meta.album)
-                    } else {
-                        meta.album.clone()
-                    };
+                    let title = meta.album.clone();
                     lib.objects.insert(
                         id.clone(),
                         LibraryObject::Container(Container {

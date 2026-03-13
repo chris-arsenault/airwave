@@ -1,4 +1,5 @@
 pub mod art;
+pub mod device_config;
 pub mod devices;
 pub mod eq;
 pub mod events;
