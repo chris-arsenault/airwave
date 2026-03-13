@@ -44,10 +44,12 @@ export function MiniPlayer({ onExpand }: Props) {
     >
       {/* Progress bar */}
       <div className="h-0.5 bg-white/5">
-        <div
-          className="h-full bg-[var(--color-accent)] transition-all duration-1000 ease-linear"
-          style={{ width: `${progress}%` }}
-        />
+        {hasTrack && durationSeconds > 0 && (
+          <div
+            className="h-full bg-[var(--color-accent)] transition-all duration-1000 ease-linear"
+            style={{ width: `${progress}%` }}
+          />
+        )}
       </div>
 
       <div className="flex items-center gap-3 px-4 py-2">
