@@ -1,1 +1,23 @@
-/target
+# Rust
+dlna-server/target/
+
+# Python
+control/backend/__pycache__/
+control/backend/*.egg-info/
+control/backend/.venv/
+control/backend/.ruff_cache/
+control/backend/.pytest_cache/
+control/backend/*.db
+
+# Node
+control/frontend/node_modules/
+control/frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store

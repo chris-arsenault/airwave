@@ -2,65 +2,83 @@
 
 ## Project Overview
 
-wiim-dlna is a minimal DLNA/UPnP MediaServer:1 written in Rust. It serves music files to WiiM network audio players via SSDP discovery, SOAP-based browsing, and HTTP streaming.
+Monorepo for a WiiM audio ecosystem: a DLNA media server and a web-based control plane for WiiM devices.
+
+### Components
+
+| Directory | Language | Purpose |
+|-----------|----------|---------|
+| `dlna-server/` | Rust | Minimal DLNA/UPnP MediaServer:1 — serves music via SSDP + SOAP + HTTP streaming |
+| `control/backend/` | Python (FastAPI) | Control plane — device discovery (pywiim), playback, queue, groups, DLNA browsing, playlists, EQ |
+| `control/frontend/` | React/TypeScript (Vite) | Mobile-first web UI — library browser, now playing, queue, device/group management |
 
 ## Build & Run
 
+### DLNA Server (Rust)
+
 ```bash
-cargo build --release          # build
-cargo test                     # 49 tests (XML spec, SOAP, DIDL, SSDP, library)
-cargo run -- config.toml       # run with config file
-RUST_LOG=wiim_dlna=debug cargo run -- config.toml  # debug logging
+cd dlna-server
+cargo build --release
+cargo test                     # 49 tests
+cargo clippy -- -D warnings
+cargo run -- config.toml
+```
+
+### Control Backend (Python)
+
+```bash
+cd control/backend
+pip install -e ".[dev]"
+pytest
+ruff check . && ruff format --check .
+uvicorn wiim_control.main:app --reload
+```
+
+### Control Frontend (React)
+
+```bash
+cd control/frontend
+npm install
+npm run dev                    # vite dev server
+npm run lint && npm run typecheck
+npm run test -- --run
+```
+
+### Full Stack (Docker)
+
+```bash
+docker compose up -d
 ```
 
 ## Architecture
 
-- **No database** — in-memory BTreeMap library, rebuilt on each scan
-- **No transcoding** — files served as-is
-- **No UPnP eventing** — WiiM devices poll Browse, no SUBSCRIBE needed
-- Single binary, single process, tokio async runtime
+### DLNA Server
+- In-memory BTreeMap library with virtual containers (Artists/Albums/Genres/All Tracks)
+- No database, no transcoding — files served as-is
+- `Arc<RwLock<Library>>` (parking_lot) — never hold read guard across await
+- Object IDs: `ar{n}` artists, `aa{n}` artist-albums, `av{n}` album-view, `gr{n}` genres, `t{n}` tracks
 
-### Module layout
+### Control Backend
+- pywiim for all WiiM device communication (async HTTP + UPnP)
+- SOAP client to dlna-server for ContentDirectory Browse/Search
+- Server-side queue engine with Poweramp-style shuffle/repeat modes
+- SSE for real-time state push to frontend
+- SQLite for playlists and preferences
 
-- `config.rs` — TOML config with IP override for containers
-- `ssdp/` — UDP multicast discovery (239.255.255.250:1900)
-- `upnp/xml.rs` — device.xml, SCPD documents
-- `upnp/soap.rs` — SOAP parse/generate
-- `upnp/didl.rs` — DIDL-Lite XML for Browse results
-- `services/content_directory.rs` — Browse action handler
-- `services/connection_manager.rs` — GetProtocolInfo handler
-- `media/library.rs` — in-memory tree (Root → Artist → Album → Track)
-- `media/metadata.rs` — audio tag extraction via lofty
-- `streaming.rs` — HTTP Range file serving with DLNA headers
-- `api.rs` — REST admin endpoints
-
-### Object ID scheme
-
-Root = `"0"`, artists = `"a{n}"`, albums = `"al{n}"`, tracks = `"t{n}"`
-
-### Shared state
-
-Library is `Arc<RwLock<Library>>` (parking_lot). Never hold the read guard across an await point — this causes `Send` bound failures with tokio.
-
-## Testing
-
-Tests are in `tests/xml_spec.rs`. They validate:
-- All XML documents parse correctly (roxmltree)
-- UPnP required elements, attributes, namespaces present
-- SOAP envelope structure
-- DIDL-Lite content (protocolInfo, duration format, DLNA flags)
-- SSDP message format
-- Library data model
+### Control Frontend
+- Zustand stores, TanStack Query, Tailwind CSS
+- Mobile-first layout: bottom nav, expandable now-playing bar
+- SSE hook for real-time device/playback updates
 
 ## Key Constraints
 
-- axum 0.8: `State<T>` can go anywhere in handler args, but `Request` must be last. parking_lot guards across await points break `Send` bounds.
-- SSDP requires multicast on 239.255.255.250:1900 — needs `--network=host` in Docker or macvlan.
-- `advertise_ip` config is critical for bridge-mode containers.
+- Backend needs host networking for SSDP multicast device discovery
+- pywiim group commands must go through the master device (slave-side leave doesn't persist)
+- WiiM HTTPS uses self-signed certs (pywiim handles this)
+- No auth — this is a home network appliance
 
 ## Style
 
-- Minimal dependencies. No frameworks beyond axum/tokio.
-- XML generated via quick-xml writer, not string templates (except static SCPDs).
-- All UPnP XML is static `&'static str` where possible.
-- Errors returned as SOAP faults with proper UPnP error codes.
+- DLNA server: minimal deps, quick-xml writer, SOAP faults with UPnP error codes
+- Backend: FastAPI routers, pydantic models, async throughout
+- Frontend: functional components, typed API layer, no class components

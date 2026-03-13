@@ -1,13 +1,38 @@
 services:
-  wiim-dlna:
-    build: .
+  dlna-server:
+    build: ./dlna-server
     container_name: wiim-dlna
     network_mode: host
     restart: unless-stopped
     volumes:
-      # Music library — adjust the host path to your TrueNAS dataset
       - /mnt/apps/shares/public/Music:/mnt/music:ro
-      # Persistent config — edit this file on the host to change settings
-      - ./config.toml:/etc/wiim-dlna/config.toml:ro
+      - ./dlna-server/config.toml:/etc/wiim-dlna/config.toml:ro
     environment:
       - RUST_LOG=wiim_dlna=info
+
+  backend:
+    build: ./control/backend
+    container_name: wiim-control-backend
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - DLNA_BASE_URL=http://localhost:9000
+      - DATABASE_PATH=/data/wiim-control.db
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - wiim-control-data:/data
+    depends_on:
+      - dlna-server
+
+  frontend:
+    build: ./control/frontend
+    container_name: wiim-control-frontend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+volumes:
+  wiim-control-data:
