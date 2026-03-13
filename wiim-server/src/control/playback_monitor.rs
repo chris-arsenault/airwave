@@ -32,6 +32,11 @@ pub async fn run_playback_monitor(
                 continue;
             }
 
+            // Skip slaves — only monitor master devices (slaves follow via firmware).
+            if device.group_id.is_some() && !device.is_master {
+                continue;
+            }
+
             // Query device state once per tick.
             let transport = device.av_transport.get_transport_info().await.ok();
             let position = device.av_transport.get_position_info().await.ok();

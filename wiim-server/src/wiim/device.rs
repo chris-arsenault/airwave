@@ -154,4 +154,15 @@ impl DeviceManager {
     pub fn contains(&self, id: &str) -> bool {
         self.devices.contains_key(id)
     }
+
+    /// Get the master device ID for a device (returns own ID if ungrouped/master).
+    pub fn master_id_for(&self, id: &str) -> Option<String> {
+        let device = self.get(id)?;
+        if let Some(ref group_id) = device.group_id {
+            if !device.is_master {
+                return Some(group_id.clone());
+            }
+        }
+        Some(device.id)
+    }
 }

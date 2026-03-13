@@ -44,6 +44,13 @@ export function DeviceManager() {
     )
   }
 
+  // Group devices: masters with their slaves, then ungrouped devices.
+  const masters = devices.filter((d) => d.is_master)
+  const groupedSlaveIds = new Set(
+    devices.filter((d) => d.group_id && !d.is_master).map((d) => d.id)
+  )
+  const ungrouped = devices.filter((d) => !d.group_id)
+
   if (devices.length === 0) {
     return (
       <div className="space-y-3">
@@ -96,21 +103,64 @@ export function DeviceManager() {
       )}
 
       <div className="space-y-2">
-        {devices.map((device) => (
-          <DeviceCard
-            key={device.id}
-            device={device}
-            isActive={device.id === activeDeviceId}
-            grouping={grouping}
-            isSelectedSlave={selectedSlaves.includes(device.id)}
-            onSelect={() => !grouping && device.enabled && setActiveDevice(device.id)}
-            onToggleSlave={() => toggleSlaveSelection(device.id)}
-            onVolumeChange={(v) => handleVolumeChange(device, v)}
-            onMuteToggle={() => handleMuteToggle(device)}
-            onToggleEnabled={() => handleToggleEnabled(device)}
-            onDissolveGroup={() => handleDissolveGroup(device.id)}
-          />
-        ))}
+        {/* Render grouped devices (master + slaves together) */}
+        {masters.map((master) => {
+          const slaves = devices.filter(
+            (d) => d.group_id === master.id && !d.is_master
+          )
+          return (
+            <div key={master.id} className="rounded-xl border border-orange-400/20 overflow-hidden">
+              <DeviceCard
+                device={master}
+                isActive={master.id === activeDeviceId}
+                grouping={grouping}
+                isSelectedSlave={false}
+                onSelect={() => !grouping && master.enabled && setActiveDevice(master.id)}
+                onToggleSlave={() => {}}
+                onVolumeChange={(v) => handleVolumeChange(master, v)}
+                onMuteToggle={() => handleMuteToggle(master)}
+                onToggleEnabled={() => handleToggleEnabled(master)}
+                onDissolveGroup={() => handleDissolveGroup(master.id)}
+              />
+              {slaves.map((slave) => (
+                <div key={slave.id} className="border-t border-white/5 pl-4">
+                  <DeviceCard
+                    device={slave}
+                    isActive={slave.id === activeDeviceId}
+                    grouping={grouping}
+                    isSelectedSlave={false}
+                    isGroupedSlave
+                    onSelect={() => !grouping && slave.enabled && setActiveDevice(slave.id)}
+                    onToggleSlave={() => {}}
+                    onVolumeChange={(v) => handleVolumeChange(slave, v)}
+                    onMuteToggle={() => handleMuteToggle(slave)}
+                    onToggleEnabled={() => handleToggleEnabled(slave)}
+                    onDissolveGroup={() => {}}
+                  />
+                </div>
+              ))}
+            </div>
+          )
+        })}
+
+        {/* Render ungrouped devices */}
+        {ungrouped
+          .filter((d) => !groupedSlaveIds.has(d.id))
+          .map((device) => (
+            <DeviceCard
+              key={device.id}
+              device={device}
+              isActive={device.id === activeDeviceId}
+              grouping={grouping}
+              isSelectedSlave={selectedSlaves.includes(device.id)}
+              onSelect={() => !grouping && device.enabled && setActiveDevice(device.id)}
+              onToggleSlave={() => toggleSlaveSelection(device.id)}
+              onVolumeChange={(v) => handleVolumeChange(device, v)}
+              onMuteToggle={() => handleMuteToggle(device)}
+              onToggleEnabled={() => handleToggleEnabled(device)}
+              onDissolveGroup={() => handleDissolveGroup(device.id)}
+            />
+          ))}
       </div>
     </div>
   )
@@ -136,6 +186,7 @@ function DeviceCard({
   isActive,
   grouping,
   isSelectedSlave,
+  isGroupedSlave,
   onSelect,
   onToggleSlave,
   onVolumeChange,
@@ -147,6 +198,7 @@ function DeviceCard({
   isActive: boolean
   grouping: boolean
   isSelectedSlave: boolean
+  isGroupedSlave?: boolean
   onSelect: () => void
   onToggleSlave: () => void
   onVolumeChange: (value: number) => void
@@ -159,7 +211,9 @@ function DeviceCard({
   return (
     <div
       onClick={grouping ? onToggleSlave : onSelect}
-      className={`bg-[var(--color-surface-elevated)] rounded-xl p-4 transition-all cursor-pointer ${
+      className={`bg-[var(--color-surface-elevated)] p-4 transition-all cursor-pointer ${
+        !device.is_master && !isGroupedSlave ? 'rounded-xl' : ''
+      } ${
         !device.enabled ? 'opacity-50' : ''
       } ${
         isActive && !grouping && device.enabled ? 'ring-1 ring-[var(--color-accent)]' : ''
@@ -190,6 +244,11 @@ function DeviceCard({
               {device.is_master && (
                 <span className="text-[10px] text-orange-400 bg-orange-400/10 px-1.5 py-0.5 rounded-full">
                   Master
+                </span>
+              )}
+              {isGroupedSlave && (
+                <span className="text-[10px] text-orange-300 bg-orange-300/10 px-1.5 py-0.5 rounded-full">
+                  Follower
                 </span>
               )}
             </div>

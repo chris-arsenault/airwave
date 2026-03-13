@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 interface ArtColors {
   dominant: string
@@ -9,19 +9,19 @@ const DEFAULT_COLORS: ArtColors = { dominant: '#6366f1', muted: '#2d2b55' }
 const cache = new Map<string, ArtColors>()
 
 export function useArtColor(trackId: string | null): ArtColors {
-  const [colors, setColors] = useState<ArtColors>(
-    (trackId && cache.get(trackId)) || DEFAULT_COLORS
+  const initialColors = useMemo(
+    () => (trackId && cache.get(trackId)) || DEFAULT_COLORS,
+    [trackId]
   )
+  const [colors, setColors] = useState<ArtColors>(initialColors)
+
+  // Reset colors synchronously when trackId changes (via initialColors).
+  useEffect(() => {
+    setColors(initialColors)
+  }, [initialColors])
 
   useEffect(() => {
-    if (!trackId) {
-      setColors(DEFAULT_COLORS)
-      return
-    }
-
-    const cached = cache.get(trackId)
-    if (cached) {
-      setColors(cached)
+    if (!trackId || cache.has(trackId)) {
       return
     }
 

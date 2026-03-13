@@ -1,8 +1,10 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
+use tracing::debug;
 
 use crate::media::library::LibraryObject;
+use crate::wiim::device::WiimDevice;
 
 use super::models::{
     PlayRequest, PlaybackStateResponse, QueueAddRequest, QueueStateResponse, QueueTrackResponse,
@@ -11,11 +13,34 @@ use super::models::{
 use super::session::{PlaySession, RepeatMode, ShuffleMode};
 use super::state::ControlState;
 
+/// Resolve a target device ID to the master device for playback.
+/// If the target is a slave, routes to the master instead.
+/// Returns (effective_target_id, device) where device is the master.
+fn resolve_playback_target(
+    state: &ControlState,
+    target: &str,
+) -> Result<(String, WiimDevice), StatusCode> {
+    let master_id = state
+        .devices
+        .master_id_for(target)
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    if master_id != target {
+        debug!(
+            "Playback target {} is a slave, routing to master {}",
+            target, master_id
+        );
+    }
+
+    let device = state.devices.get(&master_id).ok_or(StatusCode::NOT_FOUND)?;
+    Ok((master_id, device))
+}
+
 pub async fn get_state(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Result<Json<PlaybackStateResponse>, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (target, device) = resolve_playback_target(&state, &target)?;
 
     // Use standard UPnP actions that work with any MediaRenderer
     let (playing, elapsed, duration) = if device.capabilities.av_transport {
@@ -108,7 +133,7 @@ pub async fn play(
     Path(target): Path<String>,
     Json(body): Json<PlayRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (target, device) = resolve_playback_target(&state, &target)?;
     let start_index = body.start_index.unwrap_or(0);
 
     // Resolve track IDs from the request — supports single track, multiple tracks, or container
@@ -224,7 +249,7 @@ pub async fn stop(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (target, device) = resolve_playback_target(&state, &target)?;
     device
         .av_transport
         .stop()
@@ -241,7 +266,7 @@ pub async fn pause(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (_target, device) = resolve_playback_target(&state, &target)?;
     device
         .av_transport
         .pause()
@@ -254,7 +279,7 @@ pub async fn resume(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (_target, device) = resolve_playback_target(&state, &target)?;
     device
         .av_transport
         .play()
@@ -267,7 +292,7 @@ pub async fn next_track(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (_target, device) = resolve_playback_target(&state, &target)?;
     device
         .av_transport
         .next()
@@ -280,7 +305,7 @@ pub async fn prev_track(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (_target, device) = resolve_playback_target(&state, &target)?;
     device
         .av_transport
         .previous()
@@ -294,7 +319,7 @@ pub async fn seek(
     Path(target): Path<String>,
     Json(body): Json<SeekRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (_target, device) = resolve_playback_target(&state, &target)?;
     let target_time = format_duration(body.position_seconds);
     device
         .av_transport
@@ -309,6 +334,7 @@ pub async fn set_shuffle(
     Path(target): Path<String>,
     Json(body): Json<ShuffleModeRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let (target, _device) = resolve_playback_target(&state, &target)?;
     let queue = state.queues.get_or_create(&target);
     queue.write().set_shuffle_mode(body.mode);
     Ok(StatusCode::OK)
@@ -319,6 +345,7 @@ pub async fn set_repeat(
     Path(target): Path<String>,
     Json(body): Json<RepeatModeRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let (target, _device) = resolve_playback_target(&state, &target)?;
     let queue = state.queues.get_or_create(&target);
     queue.write().set_repeat_mode(body.mode);
     Ok(StatusCode::OK)
@@ -328,6 +355,10 @@ pub async fn get_queue(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Json<QueueStateResponse> {
+    let target = state
+        .devices
+        .master_id_for(&target)
+        .unwrap_or(target.clone());
     let queue = state.queues.get_or_create(&target);
     let q = queue.read();
     Json(QueueStateResponse {
@@ -341,6 +372,10 @@ pub async fn add_to_queue(
     Path(target): Path<String>,
     Json(body): Json<QueueAddRequest>,
 ) -> StatusCode {
+    let target = state
+        .devices
+        .master_id_for(&target)
+        .unwrap_or(target.clone());
     let library = state.library.read();
     let mut tracks = Vec::new();
     for id in &body.track_ids {
@@ -369,6 +404,10 @@ pub async fn remove_from_queue(
     State(state): State<ControlState>,
     Path((target, index)): Path<(String, usize)>,
 ) -> StatusCode {
+    let target = state
+        .devices
+        .master_id_for(&target)
+        .unwrap_or(target.clone());
     let queue = state.queues.get_or_create(&target);
     queue.write().remove_track(index);
     StatusCode::OK
@@ -378,6 +417,10 @@ pub async fn clear_queue(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> StatusCode {
+    let target = state
+        .devices
+        .master_id_for(&target)
+        .unwrap_or(target.clone());
     let queue = state.queues.get_or_create(&target);
     queue.write().clear();
     StatusCode::OK
@@ -436,7 +479,7 @@ pub async fn session_play(
     Path(target): Path<String>,
     Json(body): Json<SessionPlayRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (target, device) = resolve_playback_target(&state, &target)?;
 
     let session = {
         let library = state.library.read();
@@ -472,7 +515,7 @@ pub async fn session_play(
         queue.write().clear();
     }
 
-    // Start playback on device.
+    // Start playback on master device.
     device
         .av_transport
         .set_av_transport_uri(&stream_url, "")
@@ -500,7 +543,7 @@ pub async fn session_next(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (target, device) = resolve_playback_target(&state, &target)?;
 
     let next_track_id = {
         let lock = state.sessions.get_or_create(&target);
@@ -556,7 +599,7 @@ pub async fn session_prev(
     State(state): State<ControlState>,
     Path(target): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+    let (target, device) = resolve_playback_target(&state, &target)?;
 
     let prev_track_id = {
         let lock = state.sessions.get_or_create(&target);
@@ -604,6 +647,7 @@ pub async fn session_set_shuffle(
     Path(target): Path<String>,
     Json(body): Json<ShuffleModeRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let (target, _device) = resolve_playback_target(&state, &target)?;
     let mode: ShuffleMode = serde_json::from_value(serde_json::Value::String(body.mode))
         .map_err(|_| StatusCode::BAD_REQUEST)?;
     let lock = state.sessions.get_or_create(&target);
@@ -622,6 +666,7 @@ pub async fn session_set_repeat(
     Path(target): Path<String>,
     Json(body): Json<RepeatModeRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let (target, _device) = resolve_playback_target(&state, &target)?;
     let mode: RepeatMode = serde_json::from_value(serde_json::Value::String(body.mode))
         .map_err(|_| StatusCode::BAD_REQUEST)?;
     let lock = state.sessions.get_or_create(&target);

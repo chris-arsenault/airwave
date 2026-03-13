@@ -87,7 +87,7 @@ describe('DeviceManager', () => {
 
   it('shows Ungroup button for master devices', () => {
     useDeviceStore.setState({
-      devices: [makeDevice({ id: 'a', name: 'Master', is_master: true })],
+      devices: [makeDevice({ id: 'a', name: 'Master', is_master: true, group_id: 'a' })],
       activeDeviceId: 'a',
     })
     render(<DeviceManager />)

@@ -301,9 +301,11 @@ pub async fn run_discovery(
                             }
                         }
 
-                        // Apply persisted config (enabled state)
+                        // Apply persisted config (enabled state + group membership)
                         if let Some(cfg) = persisted.get(&id) {
                             device.enabled = cfg.enabled;
+                            device.group_id = cfg.group_id.clone();
+                            device.is_master = cfg.is_master;
                         }
 
                         info!(
