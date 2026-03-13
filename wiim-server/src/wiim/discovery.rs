@@ -332,6 +332,7 @@ pub async fn run_discovery(
                             let has_https = probe.probe().await;
                             device.capabilities.https_api = has_https;
                             if has_https {
+                                device.https_client = Some(HttpsApiClient::new(&device.ip));
                                 info!("HTTPS API available for {} ({})", device.name, id);
                             } else {
                                 warn!(
