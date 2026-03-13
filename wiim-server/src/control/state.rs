@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::media::art::ArtCache;
 use crate::media::library::SharedLibrary;
 use crate::wiim::device::DeviceManager;
 
@@ -14,5 +15,6 @@ pub struct ControlState {
     pub events: EventBus,
     pub playlists: Arc<PlaylistStore>,
     pub queues: Arc<QueueManager>,
+    pub art_cache: Arc<ArtCache>,
     pub base_url: String,
 }

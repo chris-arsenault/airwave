@@ -31,6 +31,12 @@ pub struct MediaConfig {
 pub struct ServerConfig {
     #[serde(default = "default_friendly_name")]
     pub friendly_name: String,
+    #[serde(default = "default_data_dir")]
+    pub data_dir: PathBuf,
+}
+
+fn default_data_dir() -> PathBuf {
+    PathBuf::from("/data")
 }
 
 fn default_port() -> u16 {
@@ -71,6 +77,7 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             friendly_name: default_friendly_name(),
+            data_dir: default_data_dir(),
         }
     }
 }

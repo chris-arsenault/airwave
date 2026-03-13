@@ -9,6 +9,7 @@ vi.mock('../../api/client', () => ({
     pause: vi.fn(() => Promise.resolve()),
     resume: vi.fn(() => Promise.resolve()),
     setVolume: vi.fn(() => Promise.resolve()),
+    artUrl: vi.fn((id: string) => `/api/art/${id}`),
   },
 }))
 

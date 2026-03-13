@@ -1,3 +1,4 @@
+pub mod art;
 pub mod devices;
 pub mod eq;
 pub mod events;

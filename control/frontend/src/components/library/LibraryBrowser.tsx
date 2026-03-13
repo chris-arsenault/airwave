@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ImgHTMLAttributes } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type LibraryItem, type ContainerInfo } from '../../api/client'
 import { useDeviceStore } from '../../stores/deviceStore'
@@ -259,9 +259,7 @@ function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: 
                 className="flex items-center gap-3 flex-1 min-w-0 text-left"
                 title="Play"
               >
-                <div className="w-10 h-10 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center shrink-0 group-hover:bg-[var(--color-accent)]/20 transition-colors">
-                  <PlayIcon />
-                </div>
+                <ArtThumb trackId={item.id} fallback={<PlayIcon />} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">
                     {item.track_number && (
@@ -301,6 +299,27 @@ function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: 
         </div>
       ))}
     </div>
+  )
+}
+
+// Art thumbnail with fallback
+function ArtThumb({ trackId, fallback }: { trackId: string; fallback: React.ReactNode }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <div className="w-10 h-10 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center shrink-0 group-hover:bg-[var(--color-accent)]/20 transition-colors">
+        {fallback}
+      </div>
+    )
+  }
+  return (
+    <img
+      src={api.artUrl(trackId)}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="w-10 h-10 rounded-lg object-cover shrink-0"
+    />
   )
 }
 

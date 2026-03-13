@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { usePlayerStore } from '../../stores/playerStore'
 import { useDeviceStore } from '../../stores/deviceStore'
 import { api } from '../../api/client'
@@ -50,10 +51,8 @@ export function MiniPlayer({ onExpand }: Props) {
       </div>
 
       <div className="flex items-center gap-3 px-4 py-2">
-        {/* Album art placeholder / idle icon */}
-        <div className="w-10 h-10 rounded bg-[var(--color-surface-hover)] flex items-center justify-center text-[var(--color-text-secondary)] text-lg shrink-0">
-          {hasTrack ? (currentTrack.title?.[0] ?? '?') : '♪'}
-        </div>
+        {/* Album art / idle icon */}
+        <MiniArt trackId={hasTrack ? currentTrack.id : null} fallbackChar={hasTrack ? (currentTrack.title?.[0] ?? '?') : '\u266A'} />
 
         {/* Track info or idle message */}
         <div className="flex-1 min-w-0">
@@ -99,6 +98,26 @@ export function MiniPlayer({ onExpand }: Props) {
           {playing ? <PauseIcon /> : <PlayIcon />}
         </button>
       </div>
+    </div>
+  )
+}
+
+function MiniArt({ trackId, fallbackChar }: { trackId: string | null; fallbackChar: string }) {
+  const [failed, setFailed] = useState(false)
+  if (trackId && !failed) {
+    return (
+      <img
+        src={api.artUrl(trackId)}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="w-10 h-10 rounded object-cover shrink-0"
+      />
+    )
+  }
+  return (
+    <div className="w-10 h-10 rounded bg-[var(--color-surface-hover)] flex items-center justify-center text-[var(--color-text-secondary)] text-lg shrink-0">
+      {fallbackChar}
     </div>
   )
 }

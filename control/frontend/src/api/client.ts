@@ -70,6 +70,9 @@ export const api = {
 
   // Health
   health: () => request<{ status: string }>('/health'),
+
+  // Art (returns image URL, not a JSON request)
+  artUrl: (trackId: string) => `${BASE}/art/${trackId}`,
 }
 
 // Types

@@ -91,11 +91,19 @@ async fn main() {
         .route("/rescan", post(api::rescan))
         .with_state(api_state);
 
+    // Ensure data directory exists
+    let data_dir = &cfg.server.data_dir;
+    std::fs::create_dir_all(data_dir).expect("Failed to create data directory");
+
     // Control API state
     let device_manager = Arc::new(wiim::device::DeviceManager::new());
     let event_bus = control::events::EventBus::new();
-    let playlist_store = Arc::new(control::playlists::PlaylistStore::new("playlists.db"));
+    let playlist_db = data_dir.join("playlists.db");
+    let playlist_store = Arc::new(control::playlists::PlaylistStore::new(
+        playlist_db.to_str().unwrap_or("playlists.db"),
+    ));
     let queue_manager = Arc::new(control::queue::QueueManager::new());
+    let art_cache = Arc::new(media::art::ArtCache::new(data_dir));
 
     let control_state = control::state::ControlState {
         devices: device_manager.clone(),
@@ -103,6 +111,7 @@ async fn main() {
         events: event_bus.clone(),
         playlists: playlist_store,
         queues: queue_manager.clone(),
+        art_cache,
         base_url: cfg.base_url(),
     };
 
@@ -166,6 +175,8 @@ async fn main() {
         // Groups
         .route("/groups", post(control::groups::create_group))
         .route("/groups/{id}", delete(control::groups::dissolve_group))
+        // Art
+        .route("/art/{id}", get(control::art::get_art))
         // Library
         .route("/library/browse", get(control::library::browse))
         .route("/library/search", get(control::library::search))

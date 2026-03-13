@@ -10,3 +10,4 @@ scan_interval_secs = 300
 
 [server]
 friendly_name = "WiiM Music Server"
+data_dir = "/data"

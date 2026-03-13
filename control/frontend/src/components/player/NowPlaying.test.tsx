@@ -21,6 +21,7 @@ vi.mock('../../api/client', () => ({
     setVolume: vi.fn(() => Promise.resolve()),
     setShuffle: vi.fn(() => Promise.resolve()),
     setRepeat: vi.fn(() => Promise.resolve()),
+    artUrl: vi.fn((id: string) => `/api/art/${id}`),
   },
 }))
 

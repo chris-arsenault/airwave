@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../../api/client'
 import { usePlayerStore } from '../../stores/playerStore'
@@ -105,11 +105,7 @@ export function NowPlaying({ open, onClose }: Props) {
 
           {/* Album art */}
           <div className="flex-1 flex items-center justify-center px-8">
-            <div className="w-full max-w-[320px] aspect-square rounded-2xl bg-[var(--color-surface-elevated)] flex items-center justify-center">
-              <div className="text-6xl text-[var(--color-text-secondary)]">
-                {currentTrack?.title?.[0]?.toUpperCase() ?? '♪'}
-              </div>
-            </div>
+            <NowPlayingArt trackId={currentTrack?.id ?? null} title={currentTrack?.title ?? null} />
           </div>
 
           {/* Track info */}
@@ -206,6 +202,34 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function NowPlayingArt({ trackId, title }: { trackId: string | null; title: string | null }) {
+  const [failed, setFailed] = useState(false)
+  // Reset failed state when track changes
+  const [lastTrackId, setLastTrackId] = useState(trackId)
+  if (trackId !== lastTrackId) {
+    setLastTrackId(trackId)
+    setFailed(false)
+  }
+
+  if (trackId && !failed) {
+    return (
+      <img
+        src={api.artUrl(trackId)}
+        alt=""
+        onError={() => setFailed(true)}
+        className="w-full max-w-[320px] aspect-square rounded-2xl object-cover"
+      />
+    )
+  }
+  return (
+    <div className="w-full max-w-[320px] aspect-square rounded-2xl bg-[var(--color-surface-elevated)] flex items-center justify-center">
+      <div className="text-6xl text-[var(--color-text-secondary)]">
+        {title?.[0]?.toUpperCase() ?? '\u266A'}
+      </div>
+    </div>
+  )
 }
 
 // Icons
