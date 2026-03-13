@@ -49,14 +49,16 @@ async def _resolve_tracks(track_ids: list[str]) -> list[QueueTrack]:
         # Simplified: search for the ID in results
         for item in result.get("items", []):
             if item.get("id") == tid:
-                tracks.append(QueueTrack(
-                    id=item["id"],
-                    title=item.get("title", "Unknown"),
-                    artist=item.get("artist"),
-                    album=item.get("album"),
-                    duration=item.get("duration"),
-                    stream_url=item.get("stream_url"),
-                ))
+                tracks.append(
+                    QueueTrack(
+                        id=item["id"],
+                        title=item.get("title", "Unknown"),
+                        artist=item.get("artist"),
+                        album=item.get("album"),
+                        duration=item.get("duration"),
+                        stream_url=item.get("stream_url"),
+                    )
+                )
                 break
     return tracks
 
@@ -106,11 +108,14 @@ async def play(target_id: str, body: PlayRequest, request: Request):
     current = queue.current()
     if current:
         await _play_track_on_device(request, target_id, current)
-        publish("playback_update", {
-            "target_id": target_id,
-            "track": current.model_dump(),
-            "position": queue.position,
-        })
+        publish(
+            "playback_update",
+            {
+                "target_id": target_id,
+                "track": current.model_dump(),
+                "position": queue.position,
+            },
+        )
 
     return {"ok": True}
 
@@ -141,11 +146,14 @@ async def next_track(target_id: str, request: Request):
     track = queue.advance()
     if track:
         await _play_track_on_device(request, target_id, track)
-        publish("playback_update", {
-            "target_id": target_id,
-            "track": track.model_dump(),
-            "position": queue.position,
-        })
+        publish(
+            "playback_update",
+            {
+                "target_id": target_id,
+                "track": track.model_dump(),
+                "position": queue.position,
+            },
+        )
     return {"ok": True, "track": track.model_dump() if track else None}
 
 
@@ -155,11 +163,14 @@ async def prev_track(target_id: str, request: Request):
     track = queue.go_back()
     if track:
         await _play_track_on_device(request, target_id, track)
-        publish("playback_update", {
-            "target_id": target_id,
-            "track": track.model_dump(),
-            "position": queue.position,
-        })
+        publish(
+            "playback_update",
+            {
+                "target_id": target_id,
+                "track": track.model_dump(),
+                "position": queue.position,
+            },
+        )
     return {"ok": True, "track": track.model_dump() if track else None}
 
 
@@ -204,10 +215,13 @@ async def add_to_queue(target_id: str, body: QueueAddRequest):
     queue = _get_queue(target_id)
     tracks = await _resolve_tracks(body.track_ids)
     queue.add_tracks(tracks, next=(body.position == "next"))
-    publish("queue_update", {
-        "target_id": target_id,
-        "queue_length": len(queue.tracks),
-    })
+    publish(
+        "queue_update",
+        {
+            "target_id": target_id,
+            "queue_length": len(queue.tracks),
+        },
+    )
     return {"ok": True}
 
 
@@ -215,10 +229,13 @@ async def add_to_queue(target_id: str, body: QueueAddRequest):
 async def remove_from_queue(target_id: str, index: int):
     queue = _get_queue(target_id)
     queue.remove_track(index)
-    publish("queue_update", {
-        "target_id": target_id,
-        "queue_length": len(queue.tracks),
-    })
+    publish(
+        "queue_update",
+        {
+            "target_id": target_id,
+            "queue_length": len(queue.tracks),
+        },
+    )
     return {"ok": True}
 
 

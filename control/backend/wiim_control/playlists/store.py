@@ -69,7 +69,8 @@ class PlaylistStore:
             return None
 
         tracks_cursor = await self._db.execute(
-            "SELECT track_id, position FROM playlist_tracks WHERE playlist_id = ? ORDER BY position",
+            "SELECT track_id, position FROM playlist_tracks"
+            " WHERE playlist_id = ? ORDER BY position",
             (playlist_id,),
         )
         tracks = await tracks_cursor.fetchall()

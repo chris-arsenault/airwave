@@ -3,7 +3,7 @@ name = "wiim-control"
 version = "0.1.0"
 description = "WiiM device control plane — backend"
 license = {text = "MIT"}
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
@@ -28,7 +28,7 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]

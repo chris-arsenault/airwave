@@ -50,33 +50,37 @@ def _parse_didl(didl_xml: str) -> list[dict]:
     results = []
 
     for container in root.findall("didl:container", _NS):
-        results.append({
-            "type": "container",
-            "id": container.get("id"),
-            "parent_id": container.get("parentID"),
-            "title": _text(container, "dc:title"),
-            "class": _text(container, "upnp:class"),
-            "child_count": int(container.get("childCount", "0")),
-        })
+        results.append(
+            {
+                "type": "container",
+                "id": container.get("id"),
+                "parent_id": container.get("parentID"),
+                "title": _text(container, "dc:title"),
+                "class": _text(container, "upnp:class"),
+                "child_count": int(container.get("childCount", "0")),
+            }
+        )
 
     for item in root.findall("didl:item", _NS):
         res_el = item.find("didl:res", _NS)
-        results.append({
-            "type": "track",
-            "id": item.get("id"),
-            "parent_id": item.get("parentID"),
-            "title": _text(item, "dc:title"),
-            "artist": _text(item, "dc:creator"),
-            "album": _text(item, "upnp:album"),
-            "genre": _text(item, "upnp:genre"),
-            "track_number": _text(item, "upnp:originalTrackNumber"),
-            "class": _text(item, "upnp:class"),
-            "duration": res_el.get("duration") if res_el is not None else None,
-            "stream_url": res_el.text if res_el is not None else None,
-            "mime_type": _extract_mime(res_el),
-            "sample_rate": res_el.get("sampleFrequency") if res_el is not None else None,
-            "bit_depth": res_el.get("bitsPerSample") if res_el is not None else None,
-        })
+        results.append(
+            {
+                "type": "track",
+                "id": item.get("id"),
+                "parent_id": item.get("parentID"),
+                "title": _text(item, "dc:title"),
+                "artist": _text(item, "dc:creator"),
+                "album": _text(item, "upnp:album"),
+                "genre": _text(item, "upnp:genre"),
+                "track_number": _text(item, "upnp:originalTrackNumber"),
+                "class": _text(item, "upnp:class"),
+                "duration": res_el.get("duration") if res_el is not None else None,
+                "stream_url": res_el.text if res_el is not None else None,
+                "mime_type": _extract_mime(res_el),
+                "sample_rate": res_el.get("sampleFrequency") if res_el is not None else None,
+                "bit_depth": res_el.get("bitsPerSample") if res_el is not None else None,
+            }
+        )
 
     return results
 
@@ -96,14 +100,17 @@ def _extract_mime(res_el: ET.Element | None) -> str | None:
 
 async def browse(object_id: str = "0", start: int = 0, count: int = 0) -> dict:
     """Browse a container in the DLNA library."""
-    root = await _soap_call("Browse", {
-        "ObjectID": object_id,
-        "BrowseFlag": "BrowseDirectChildren",
-        "Filter": "*",
-        "StartingIndex": str(start),
-        "RequestedCount": str(count),
-        "SortCriteria": "",
-    })
+    root = await _soap_call(
+        "Browse",
+        {
+            "ObjectID": object_id,
+            "BrowseFlag": "BrowseDirectChildren",
+            "Filter": "*",
+            "StartingIndex": str(start),
+            "RequestedCount": str(count),
+            "SortCriteria": "",
+        },
+    )
 
     body = root.find(".//s:Body", _NS)
     response = body[0] if body is not None and len(body) > 0 else None
@@ -125,14 +132,17 @@ async def browse(object_id: str = "0", start: int = 0, count: int = 0) -> dict:
 
 async def search(query: str, start: int = 0, count: int = 0) -> dict:
     """Search the DLNA library."""
-    root = await _soap_call("Search", {
-        "ContainerID": "0",
-        "SearchCriteria": f'dc:title contains "{query}"',
-        "Filter": "*",
-        "StartingIndex": str(start),
-        "RequestedCount": str(count),
-        "SortCriteria": "",
-    })
+    root = await _soap_call(
+        "Search",
+        {
+            "ContainerID": "0",
+            "SearchCriteria": f'dc:title contains "{query}"',
+            "Filter": "*",
+            "StartingIndex": str(start),
+            "RequestedCount": str(count),
+            "SortCriteria": "",
+        },
+    )
 
     body = root.find(".//s:Body", _NS)
     response = body[0] if body is not None and len(body) > 0 else None

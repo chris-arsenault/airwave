@@ -81,9 +81,7 @@ async def set_peq(device_id: str, body: PEQSettingsRequest, request: Request):
     try:
         # pywiim PEQ API expects band objects
         for band in body.bands:
-            await player.set_peq_band(
-                band.band, band.mode, band.frequency, band.q, band.gain
-            )
+            await player.set_peq_band(band.band, band.mode, band.frequency, band.q, band.gain)
         return {"ok": True}
     except Exception as e:
         raise HTTPException(400, str(e)) from e

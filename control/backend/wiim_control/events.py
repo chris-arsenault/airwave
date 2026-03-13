@@ -36,7 +36,7 @@ async def _event_stream(request: Request) -> AsyncGenerator[str, None]:
             try:
                 payload = await asyncio.wait_for(queue.get(), timeout=15.0)
                 yield f"data: {payload}\n\n"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield ": keepalive\n\n"
     finally:
         _subscribers.remove(queue)

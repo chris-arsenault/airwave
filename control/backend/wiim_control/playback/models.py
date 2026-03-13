@@ -1,9 +1,9 @@
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class ShuffleMode(str, Enum):
+class ShuffleMode(StrEnum):
     OFF = "off"
     ALL = "shuffle_all"
     SONGS = "shuffle_songs"
@@ -11,7 +11,7 @@ class ShuffleMode(str, Enum):
     SONGS_AND_CATEGORIES = "shuffle_songs_and_categories"
 
 
-class RepeatMode(str, Enum):
+class RepeatMode(StrEnum):
     OFF = "off"
     TRACK = "track"
     CATEGORY = "category"
