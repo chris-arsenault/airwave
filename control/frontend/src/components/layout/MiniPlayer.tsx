@@ -34,8 +34,6 @@ export function MiniPlayer({ onExpand }: Props) {
     }
   }
 
-  if (!hasTrack && !playing) return null
-
   return (
     <div
       onClick={onExpand}

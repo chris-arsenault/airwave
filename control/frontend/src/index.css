@@ -50,9 +50,6 @@ body {
     min-height: 0;
     padding-bottom: 0;
   }
-  .app-layout.np-collapsed {
-    grid-template-columns: 64px 1fr;
-  }
   .app-sidebar {
     display: flex;
     grid-column: 1;
@@ -64,12 +61,10 @@ body {
     overflow-y: auto;
   }
   .app-nowplaying {
+    display: flex;
     grid-column: 3;
     grid-row: 1;
     overflow-y: auto;
-  }
-  .app-layout.np-collapsed .app-nowplaying {
-    display: none;
   }
   .mini-player {
     display: none;

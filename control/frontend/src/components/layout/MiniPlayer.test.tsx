@@ -32,9 +32,9 @@ describe('MiniPlayer', () => {
     })
   })
 
-  it('renders nothing when no track is playing', () => {
-    const { container } = render(<MiniPlayer onExpand={vi.fn()} />)
-    expect(container.innerHTML).toBe('')
+  it('shows idle state when no track is playing', () => {
+    render(<MiniPlayer onExpand={vi.fn()} />)
+    expect(screen.getByText('Not playing')).toBeInTheDocument()
   })
 
   it('shows track info when a track is set', () => {

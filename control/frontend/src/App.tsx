@@ -24,7 +24,6 @@ function AppContent() {
   const setPlaying = usePlayerStore((s) => s.setPlaying)
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
   const setSession = usePlayerStore((s) => s.setSession)
-  const hasTrack = usePlayerStore((s) => !!s.currentTrack)
 
   // Initial device fetch
   useEffect(() => {
@@ -98,7 +97,7 @@ function AppContent() {
   })
 
   return (
-    <div className={`app-layout ${!hasTrack ? 'np-collapsed' : ''}`}>
+    <div className="app-layout">
       {/* Desktop sidebar */}
       <Sidebar active={tab} onNavigate={setTab} />
 

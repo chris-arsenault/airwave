@@ -137,7 +137,7 @@ export function NowPlaying({ open, onClose }: Props) {
 
       {/* Desktop: right panel */}
       <div
-        className="app-nowplaying hidden md:flex flex-col"
+        className="app-nowplaying flex-col"
         style={{ background: colors.muted }}
       >
         <NowPlayingContent
