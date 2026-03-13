@@ -2,8 +2,9 @@
 dlna-server/target/
 
 # Python
-control/backend/__pycache__/
-control/backend/*.egg-info/
+__pycache__/
+*.pyc
+*.egg-info/
 control/backend/.venv/
 control/backend/.ruff_cache/
 control/backend/.pytest_cache/
