@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api, type LibraryItem, type ContainerInfo } from '../../api/client'
 import { useDeviceStore } from '../../stores/deviceStore'
 import { usePlayerStore } from '../../stores/playerStore'
+import { TrackEditor, BulkAlbumArtistDialog, RenameArtistDialog } from './TrackEditor'
 
 const CATEGORY_ICONS: Record<string, string> = {
   Artists: '\uD83C\uDFA4',
@@ -134,6 +135,8 @@ export function LibraryBrowser() {
 function ContainerHeader({ info }: { info: ContainerInfo }) {
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
   const setPlaying = usePlayerStore((s) => s.setPlaying)
+  const [showAlbumArtist, setShowAlbumArtist] = useState(false)
+  const [showRename, setShowRename] = useState(false)
 
   const isAlbum = info.class === 'object.container.album.musicAlbum'
   const isArtist = info.class === 'object.container.person.musicArtist'
@@ -145,31 +148,68 @@ function ContainerHeader({ info }: { info: ContainerInfo }) {
   }
 
   return (
-    <div className="bg-[var(--color-surface-elevated)] rounded-xl px-4 py-3 flex items-center gap-3">
-      <div className="flex-1 min-w-0">
-        {isArtist && (
-          <div className="text-base font-semibold truncate">{info.artist}</div>
-        )}
-        {isAlbum && (
-          <>
-            <div className="text-base font-semibold truncate">{info.album}</div>
-            {info.artist && (
-              <div className="text-sm text-[var(--color-text-secondary)] truncate">{info.artist}</div>
-            )}
-          </>
-        )}
+    <>
+      <div className="bg-[var(--color-surface-elevated)] rounded-xl px-4 py-3 flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          {isArtist && (
+            <div className="text-base font-semibold truncate">{info.artist}</div>
+          )}
+          {isAlbum && (
+            <>
+              <div className="text-base font-semibold truncate">{info.album}</div>
+              {info.artist && (
+                <div className="text-sm text-[var(--color-text-secondary)] truncate">{info.artist}</div>
+              )}
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {(isAlbum || isArtist) && (
+            <button
+              onClick={() => setShowAlbumArtist(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-white/10 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              title="Set album artist for all tracks"
+            >
+              <EditIcon />
+              Album Artist
+            </button>
+          )}
+          {isArtist && (
+            <button
+              onClick={() => setShowRename(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-white/10 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              title="Rename this artist"
+            >
+              <EditIcon />
+              Rename
+            </button>
+          )}
+          {activeDeviceId && (isArtist || isAlbum) && (
+            <button
+              onClick={handleQueueAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-accent)] text-white text-xs font-medium active:scale-95 transition-transform"
+              title="Play all"
+            >
+              <PlayIcon />
+              Play All
+            </button>
+          )}
+        </div>
       </div>
-      {activeDeviceId && (isArtist || isAlbum) && (
-        <button
-          onClick={handleQueueAll}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-accent)] text-white text-xs font-medium active:scale-95 transition-transform"
-          title="Play all"
-        >
-          <PlayIcon />
-          Play All
-        </button>
+      {showAlbumArtist && (
+        <BulkAlbumArtistDialog
+          containerId={info.id}
+          currentArtist={info.artist}
+          onClose={() => setShowAlbumArtist(false)}
+        />
       )}
-    </div>
+      {showRename && (
+        <RenameArtistDialog
+          initialFrom={info.artist}
+          onClose={() => setShowRename(false)}
+        />
+      )}
+    </>
   )
 }
 
@@ -199,6 +239,7 @@ function ItemList({ items, onSelect, containerId }: { items: LibraryItem[]; onSe
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
   const setPlaying = usePlayerStore((s) => s.setPlaying)
+  const [editingTrack, setEditingTrack] = useState<LibraryItem | null>(null)
 
   const handleTrackPlay = async (item: LibraryItem) => {
     if (!activeDeviceId) return
@@ -227,78 +268,90 @@ function ItemList({ items, onSelect, containerId }: { items: LibraryItem[]; onSe
   }
 
   return (
-    <div className="space-y-0.5">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors group"
-        >
-          {item.type === 'container' ? (
-            <button
-              onClick={() => onSelect(item)}
-              className="flex items-center gap-3 flex-1 min-w-0 text-left"
-            >
-              <div className="w-10 h-10 rounded-lg bg-[var(--color-surface-elevated)] flex items-center justify-center text-[var(--color-text-secondary)] shrink-0">
-                <FolderIcon />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{item.title ?? 'Unknown'}</div>
-                <div className="text-xs text-[var(--color-text-secondary)] truncate">
-                  {item.artist && item.album
-                    ? `${item.artist} \u2014 ${item.child_count ?? 0} tracks`
-                    : `${item.child_count ?? 0} items`
-                  }
-                </div>
-              </div>
-              <ChevronRightIcon className="text-[var(--color-text-secondary)] shrink-0" />
-            </button>
-          ) : (
-            <>
+    <>
+      <div className="space-y-0.5">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors group"
+          >
+            {item.type === 'container' ? (
               <button
-                onClick={() => handleTrackPlay(item)}
+                onClick={() => onSelect(item)}
                 className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                title="Play"
               >
-                <ArtThumb trackId={item.id} fallback={<PlayIcon />} />
+                <div className="w-10 h-10 rounded-lg bg-[var(--color-surface-elevated)] flex items-center justify-center text-[var(--color-text-secondary)] shrink-0">
+                  <FolderIcon />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {item.track_number && (
-                      <span className="text-[var(--color-text-secondary)] mr-1.5">{item.track_number}.</span>
-                    )}
-                    {item.title ?? 'Unknown'}
-                  </div>
+                  <div className="text-sm font-medium truncate">{item.title ?? 'Unknown'}</div>
                   <div className="text-xs text-[var(--color-text-secondary)] truncate">
-                    {[item.artist, item.album].filter(Boolean).join(' \u2014 ') || '\u00A0'}
+                    {item.artist && item.album
+                      ? `${item.artist} \u2014 ${item.child_count ?? 0} tracks`
+                      : `${item.child_count ?? 0} items`
+                    }
                   </div>
                 </div>
+                <ChevronRightIcon className="text-[var(--color-text-secondary)] shrink-0" />
               </button>
-              {item.duration && (
-                <span className="text-xs text-[var(--color-text-secondary)] shrink-0">
-                  {item.duration}
-                </span>
-              )}
+            ) : (
+              <>
+                <button
+                  onClick={() => handleTrackPlay(item)}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                  title="Play"
+                >
+                  <ArtThumb trackId={item.id} fallback={<PlayIcon />} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {item.track_number && (
+                        <span className="text-[var(--color-text-secondary)] mr-1.5">{item.track_number}.</span>
+                      )}
+                      {item.title ?? 'Unknown'}
+                    </div>
+                    <div className="text-xs text-[var(--color-text-secondary)] truncate">
+                      {[item.artist, item.album].filter(Boolean).join(' \u2014 ') || '\u00A0'}
+                    </div>
+                  </div>
+                </button>
+                {item.duration && (
+                  <span className="text-xs text-[var(--color-text-secondary)] shrink-0">
+                    {item.duration}
+                  </span>
+                )}
+                <button
+                  onClick={() => setEditingTrack(item)}
+                  className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Edit metadata"
+                >
+                  <EditIcon />
+                </button>
+                <button
+                  onClick={() => handleAddToQueue(item)}
+                  className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Add to queue"
+                >
+                  <PlusIcon />
+                </button>
+              </>
+            )}
+            {/* Play all button for containers */}
+            {item.type === 'container' && activeDeviceId && (
               <button
-                onClick={() => handleAddToQueue(item)}
+                onClick={() => handlePlayContainer(item)}
                 className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
-                title="Add to queue"
+                title="Play all"
               >
-                <PlusIcon />
+                <PlayIcon />
               </button>
-            </>
-          )}
-          {/* Play all button for containers */}
-          {item.type === 'container' && activeDeviceId && (
-            <button
-              onClick={() => handlePlayContainer(item)}
-              className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
-              title="Play all"
-            >
-              <PlayIcon />
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {editingTrack && (
+        <TrackEditor track={editingTrack} onClose={() => setEditingTrack(null)} />
+      )}
+    </>
   )
 }
 
@@ -379,6 +432,15 @@ function FolderIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
+
+function EditIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   )
 }

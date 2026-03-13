@@ -165,6 +165,24 @@ impl Library {
         self.total_tracks
     }
 
+    /// Update a track's metadata in-place (after writing tags to file).
+    pub fn refresh_track(&mut self, track_id: &str, new_meta: metadata::TrackMetadata) {
+        if let Some(LibraryObject::Track(ref mut track)) = self.objects.get_mut(track_id) {
+            track.meta = new_meta;
+        }
+    }
+
+    /// Get all track IDs and file paths in the library.
+    pub fn all_tracks(&self) -> Vec<(&str, &std::path::Path)> {
+        self.all_track_ids
+            .iter()
+            .filter_map(|id| match self.objects.get(id) {
+                Some(LibraryObject::Track(t)) => Some((id.as_str(), t.path.as_path())),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Test-only: inject objects directly for unit testing.
     #[cfg(test)]
     pub fn inject_objects_for_test(&mut self, objects: BTreeMap<ObjectId, LibraryObject>) {

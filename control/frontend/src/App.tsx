@@ -11,7 +11,6 @@ import { EQSettings } from './components/devices/EQSettings'
 import { useDeviceStore } from './stores/deviceStore'
 import { usePlayerStore } from './stores/playerStore'
 import { useSSE } from './hooks/useSSE'
-import { usePlaybackPolling } from './hooks/usePlaybackPolling'
 
 const queryClient = new QueryClient()
 
@@ -29,11 +28,32 @@ function AppContent() {
     api.getDevices().then(setDevices).catch(console.error)
   }, [setDevices])
 
-  // Poll playback state every 2s
-  usePlaybackPolling()
-
-  // SSE real-time updates
+  // SSE real-time updates (includes playback state — no polling needed)
   useSSE({
+    playback_state: (data) => {
+      const state = data as {
+        target_id: string
+        playing: boolean
+        current_track: Parameters<typeof setCurrentTrack>[0] | null
+        elapsed_seconds: number
+        duration_seconds: number
+        shuffle_mode: string
+        repeat_mode: string
+        session?: SessionInfo | null
+      }
+      const activeId = useDeviceStore.getState().activeDeviceId
+      if (state.target_id !== activeId) return
+      const session = state.session ?? null
+      usePlayerStore.setState({
+        playing: state.playing,
+        elapsedSeconds: state.elapsed_seconds,
+        durationSeconds: state.duration_seconds,
+        session,
+        shuffleMode: session ? session.shuffle_mode : state.shuffle_mode,
+        repeatMode: session ? session.repeat_mode : state.repeat_mode,
+        ...(state.current_track ? { currentTrack: state.current_track } : {}),
+      })
+    },
     devices_changed: (data) => {
       const devices = (data as { devices: Parameters<typeof setDevices>[0] }).devices
       setDevices(devices)

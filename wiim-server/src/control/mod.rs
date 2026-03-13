@@ -10,5 +10,6 @@ pub mod playback;
 pub mod playback_monitor;
 pub mod playlists;
 pub mod queue;
+pub mod metadata;
 pub mod session;
 pub mod state;

@@ -6,7 +6,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   })
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return res.json()
+  const text = await res.text()
+  if (!text) return undefined as T
+  return JSON.parse(text)
 }
 
 export const api = {
@@ -79,6 +81,14 @@ export const api = {
     request('/groups', { method: 'POST', body: JSON.stringify({ master_id: masterId, slave_ids: slaveIds }) }),
   dissolveGroup: (masterId: string) =>
     request(`/groups/${masterId}`, { method: 'DELETE' }),
+
+  // Metadata editing
+  updateTrack: (trackId: string, update: TagUpdate) =>
+    request(`/library/tracks/${trackId}`, { method: 'PATCH', body: JSON.stringify(update) }),
+  bulkSetAlbumArtist: (containerId: string, albumArtist: string) =>
+    request<BulkResult>('/library/bulk/album-artist', { method: 'POST', body: JSON.stringify({ container_id: containerId, album_artist: albumArtist }) }),
+  bulkRenameArtist: (from: string, to: string, field = 'both') =>
+    request<BulkResult>('/library/bulk/rename-artist', { method: 'POST', body: JSON.stringify({ from, to, field }) }),
 
   // Health
   health: () => request<{ status: string }>('/health'),
@@ -192,6 +202,22 @@ export interface PlayRequest {
 export interface SessionPlayRequest {
   source_id: string
   start_track_id?: string
+}
+
+export interface TagUpdate {
+  title?: string
+  artist?: string
+  album?: string
+  album_artist?: string
+  genre?: string
+  track_number?: number
+  disc_number?: number
+}
+
+export interface BulkResult {
+  total: number
+  success: number
+  failed: number
 }
 
 export interface Playlist {

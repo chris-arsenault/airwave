@@ -2,7 +2,7 @@
 target/
 
 # Node
-control/frontend/node_modules/
+node_modules/
 control/frontend/dist/
 
 # SQLite

@@ -39,7 +39,7 @@ impl SoapClient {
         &self.base_url
     }
 
-    /// Call a SOAP action on the device.
+    /// Call a SOAP action on the device, retrying transient failures with backoff.
     pub async fn call(
         &self,
         control_url: &str,
@@ -51,27 +51,52 @@ impl SoapClient {
         let soap_action = format!("\"{}#{}\"", service_type, action);
         let body = build_soap_envelope(service_type, action, args);
 
-        let resp = self
-            .http
-            .post(&url)
-            .header("Content-Type", "text/xml; charset=\"utf-8\"")
-            .header("SOAPAction", &soap_action)
-            .body(body)
-            .send()
-            .await?;
+        const MAX_RETRIES: u32 = 3;
+        const BASE_DELAY_MS: u64 = 300;
 
-        let status = resp.status();
-        let text = resp.text().await?;
+        let mut last_err = None;
+        for attempt in 0..=MAX_RETRIES {
+            if attempt > 0 {
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    BASE_DELAY_MS * 2u64.pow(attempt - 1),
+                ))
+                .await;
+            }
 
-        if status == 500 {
-            // SOAP fault
-            return Err(parse_soap_fault(&text));
+            let result = self
+                .http
+                .post(&url)
+                .header("Content-Type", "text/xml; charset=\"utf-8\"")
+                .header("SOAPAction", &soap_action)
+                .body(body.clone())
+                .send()
+                .await;
+
+            let resp = match result {
+                Ok(r) => r,
+                Err(e) => {
+                    // Network/timeout errors are retryable.
+                    last_err = Some(SoapError::Http(e));
+                    continue;
+                }
+            };
+
+            let status = resp.status();
+            let text = resp.text().await?;
+
+            if status == 500 {
+                // SOAP faults are not transient — don't retry.
+                return Err(parse_soap_fault(&text));
+            }
+            if !status.is_success() {
+                last_err = Some(SoapError::Xml(format!("HTTP {}: {}", status, text)));
+                continue;
+            }
+
+            return parse_soap_response(&text, action);
         }
-        if !status.is_success() {
-            return Err(SoapError::Xml(format!("HTTP {}: {}", status, text)));
-        }
 
-        parse_soap_response(&text, action)
+        Err(last_err.unwrap())
     }
 }
 

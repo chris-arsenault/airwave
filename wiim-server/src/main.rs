@@ -12,7 +12,7 @@ use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -203,6 +203,19 @@ async fn main() {
         // Library
         .route("/library/browse", get(control::library::browse))
         .route("/library/search", get(control::library::search))
+        // Metadata editing
+        .route(
+            "/library/tracks/{id}",
+            patch(control::metadata::update_track),
+        )
+        .route(
+            "/library/bulk/album-artist",
+            post(control::metadata::bulk_set_album_artist),
+        )
+        .route(
+            "/library/bulk/rename-artist",
+            post(control::metadata::bulk_rename_artist),
+        )
         .with_state(control_state);
 
     let app = Router::new()
