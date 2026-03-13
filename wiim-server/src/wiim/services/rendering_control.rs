@@ -3,11 +3,12 @@ use std::collections::HashMap;
 use crate::wiim::soap_client::{SoapClient, SoapError};
 
 const SERVICE_TYPE: &str = "urn:schemas-upnp-org:service:RenderingControl:1";
-const CONTROL_URL: &str = "/upnp/control/rendercontrol1";
+const DEFAULT_CONTROL_URL: &str = "/upnp/control/rendercontrol1";
 
 #[derive(Debug, Clone)]
 pub struct RenderingControl {
     client: SoapClient,
+    control_url: String,
 }
 
 #[derive(Debug)]
@@ -39,7 +40,17 @@ pub struct ControlDeviceInfo {
 
 impl RenderingControl {
     pub fn new(client: SoapClient) -> Self {
-        Self { client }
+        Self {
+            client,
+            control_url: DEFAULT_CONTROL_URL.to_string(),
+        }
+    }
+
+    pub fn with_control_url(client: SoapClient, control_url: String) -> Self {
+        Self {
+            client,
+            control_url,
+        }
     }
 
     async fn call(
@@ -51,7 +62,7 @@ impl RenderingControl {
         full_args.extend_from_slice(args);
         let resp = self
             .client
-            .call(CONTROL_URL, SERVICE_TYPE, action, &full_args)
+            .call(&self.control_url, SERVICE_TYPE, action, &full_args)
             .await?;
         Ok(resp.values)
     }

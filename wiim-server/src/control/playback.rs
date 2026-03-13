@@ -15,25 +15,43 @@ pub async fn get_state(
     Path(target): Path<String>,
 ) -> Result<Json<PlaybackStateResponse>, StatusCode> {
     let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
-    let info = device
-        .av_transport
-        .get_info_ex()
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+    // Use standard UPnP actions that work with any MediaRenderer
+    let (playing, elapsed, duration) = if device.capabilities.av_transport {
+        let transport = device.av_transport.get_transport_info().await.ok();
+        let position = device.av_transport.get_position_info().await.ok();
+
+        let playing = transport
+            .as_ref()
+            .map(|t| t.current_transport_state == "PLAYING")
+            .unwrap_or(false);
+        let elapsed = position
+            .as_ref()
+            .map(|p| parse_duration(&p.rel_time))
+            .unwrap_or(0.0);
+        let dur = position
+            .as_ref()
+            .map(|p| parse_duration(&p.track_duration))
+            .unwrap_or(0.0);
+
+        (playing, elapsed, dur)
+    } else {
+        (false, 0.0, 0.0)
+    };
 
     let queue = state.queues.get_or_create(&target);
     let q = queue.read();
 
     Ok(Json(PlaybackStateResponse {
         target_id: target,
-        playing: info.transport_state == "PLAYING",
+        playing,
         current_track: q.current().cloned(),
         position: q.position(),
         queue_length: q.tracks().len(),
         shuffle_mode: q.shuffle_mode().to_string(),
         repeat_mode: q.repeat_mode().to_string(),
-        elapsed_seconds: parse_duration(&info.rel_time),
-        duration_seconds: parse_duration(&info.track_duration),
+        elapsed_seconds: elapsed,
+        duration_seconds: duration,
     }))
 }
 

@@ -3,11 +3,12 @@ use std::collections::HashMap;
 use crate::wiim::soap_client::{SoapClient, SoapError};
 
 const SERVICE_TYPE: &str = "urn:schemas-wiimu-com:service:PlayQueue:1";
-const CONTROL_URL: &str = "/upnp/control/PlayQueue1";
+const DEFAULT_CONTROL_URL: &str = "/upnp/control/PlayQueue1";
 
 #[derive(Debug, Clone)]
 pub struct PlayQueueService {
     client: SoapClient,
+    control_url: String,
 }
 
 #[derive(Debug)]
@@ -20,7 +21,17 @@ pub struct QueueIndex {
 
 impl PlayQueueService {
     pub fn new(client: SoapClient) -> Self {
-        Self { client }
+        Self {
+            client,
+            control_url: DEFAULT_CONTROL_URL.to_string(),
+        }
+    }
+
+    pub fn with_control_url(client: SoapClient, control_url: String) -> Self {
+        Self {
+            client,
+            control_url,
+        }
     }
 
     async fn call(
@@ -30,7 +41,7 @@ impl PlayQueueService {
     ) -> Result<HashMap<String, String>, SoapError> {
         let resp = self
             .client
-            .call(CONTROL_URL, SERVICE_TYPE, action, args)
+            .call(&self.control_url, SERVICE_TYPE, action, args)
             .await?;
         Ok(resp.values)
     }

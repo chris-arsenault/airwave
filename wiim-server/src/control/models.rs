@@ -7,11 +7,26 @@ pub struct DeviceResponse {
     pub ip: String,
     pub model: Option<String>,
     pub firmware: Option<String>,
+    pub device_type: String,
+    pub enabled: bool,
+    pub capabilities: DeviceCapabilitiesResponse,
     pub volume: f64,
     pub muted: bool,
     pub source: Option<String>,
     pub group_id: Option<String>,
     pub is_master: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceCapabilitiesResponse {
+    pub av_transport: bool,
+    pub rendering_control: bool,
+    pub wiim_extended: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetEnabledRequest {
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

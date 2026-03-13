@@ -1,11 +1,40 @@
 use dashmap::DashMap;
+use serde::Serialize;
 
 use super::services::av_transport::AvTransport;
 use super::services::play_queue::PlayQueueService;
 use super::services::rendering_control::RenderingControl;
 use super::soap_client::SoapClient;
 
-/// A discovered WiiM device with its UPnP service clients.
+/// Capabilities detected from the device's description.xml and SOAP probes.
+#[derive(Debug, Clone, Serialize)]
+pub struct DeviceCapabilities {
+    pub av_transport: bool,
+    pub rendering_control: bool,
+    pub wiim_extended: bool,
+}
+
+/// Service control URLs parsed from a device's description.xml.
+#[derive(Debug, Clone, Default)]
+pub struct ServiceUrls {
+    pub av_transport: Option<String>,
+    pub rendering_control: Option<String>,
+    pub play_queue: Option<String>,
+}
+
+/// Parameters for constructing a new device.
+pub struct DeviceParams {
+    pub ip: String,
+    pub port: u16,
+    pub name: String,
+    pub model: Option<String>,
+    pub firmware: Option<String>,
+    pub udn: String,
+    pub service_urls: ServiceUrls,
+    pub capabilities: DeviceCapabilities,
+}
+
+/// A discovered UPnP MediaRenderer device with its service clients.
 #[derive(Debug, Clone)]
 pub struct WiimDevice {
     pub id: String,
@@ -15,6 +44,9 @@ pub struct WiimDevice {
     pub model: Option<String>,
     pub firmware: Option<String>,
     pub udn: String,
+    pub device_type: String,
+    pub enabled: bool,
+    pub capabilities: DeviceCapabilities,
     pub volume: f64,
     pub muted: bool,
     pub source: Option<String>,
@@ -26,39 +58,59 @@ pub struct WiimDevice {
 }
 
 impl WiimDevice {
-    pub fn new(
-        ip: String,
-        port: u16,
-        name: String,
-        model: Option<String>,
-        firmware: Option<String>,
-        udn: String,
-    ) -> Self {
-        let base_url = format!("http://{}:{}", ip, port);
+    pub fn new(params: DeviceParams) -> Self {
+        let base_url = format!("http://{}:{}", params.ip, params.port);
         let client = SoapClient::new(base_url);
-        let id = udn.replace("uuid:", "");
+        let id = params.udn.replace("uuid:", "");
+
+        let device_type = if params.capabilities.wiim_extended {
+            "wiim".to_string()
+        } else {
+            "renderer".to_string()
+        };
+
+        let av_transport = if let Some(url) = params.service_urls.av_transport {
+            AvTransport::with_control_url(client.clone(), url)
+        } else {
+            AvTransport::new(client.clone())
+        };
+
+        let rendering = if let Some(url) = params.service_urls.rendering_control {
+            RenderingControl::with_control_url(client.clone(), url)
+        } else {
+            RenderingControl::new(client.clone())
+        };
+
+        let play_queue = if let Some(url) = params.service_urls.play_queue {
+            PlayQueueService::with_control_url(client, url)
+        } else {
+            PlayQueueService::new(client)
+        };
 
         Self {
             id,
-            name,
-            ip,
-            port,
-            model,
-            firmware,
-            udn,
+            name: params.name,
+            ip: params.ip,
+            port: params.port,
+            model: params.model,
+            firmware: params.firmware,
+            udn: params.udn,
+            device_type,
+            enabled: true,
+            capabilities: params.capabilities,
             volume: 0.0,
             muted: false,
             source: None,
             group_id: None,
             is_master: false,
-            av_transport: AvTransport::new(client.clone()),
-            rendering: RenderingControl::new(client.clone()),
-            play_queue: PlayQueueService::new(client),
+            av_transport,
+            rendering,
+            play_queue,
         }
     }
 }
 
-/// Thread-safe registry of discovered WiiM devices.
+/// Thread-safe registry of discovered devices.
 pub struct DeviceManager {
     devices: DashMap<String, WiimDevice>,
 }

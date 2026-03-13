@@ -21,6 +21,12 @@ export function DeviceManager() {
     updateDevice(device.id, { muted: !device.muted })
   }
 
+  const handleToggleEnabled = async (device: Device) => {
+    const newEnabled = !device.enabled
+    updateDevice(device.id, { enabled: newEnabled })
+    await api.setEnabled(device.id, newEnabled)
+  }
+
   const handleCreateGroup = async () => {
     if (!activeDeviceId || selectedSlaves.length === 0) return
     await api.createGroup(activeDeviceId, selectedSlaves)
@@ -46,7 +52,7 @@ export function DeviceManager() {
           <div className="text-4xl mb-3">📡</div>
           <div className="text-sm text-[var(--color-text-secondary)]">Discovering devices...</div>
           <div className="text-xs text-[var(--color-text-secondary)] mt-1">
-            Make sure your WiiM devices are on the same network
+            Searching for UPnP MediaRenderer devices on your network
           </div>
         </div>
       </div>
@@ -97,15 +103,31 @@ export function DeviceManager() {
             isActive={device.id === activeDeviceId}
             grouping={grouping}
             isSelectedSlave={selectedSlaves.includes(device.id)}
-            onSelect={() => !grouping && setActiveDevice(device.id)}
+            onSelect={() => !grouping && device.enabled && setActiveDevice(device.id)}
             onToggleSlave={() => toggleSlaveSelection(device.id)}
             onVolumeChange={(v) => handleVolumeChange(device, v)}
             onMuteToggle={() => handleMuteToggle(device)}
+            onToggleEnabled={() => handleToggleEnabled(device)}
             onDissolveGroup={() => handleDissolveGroup(device.id)}
           />
         ))}
       </div>
     </div>
+  )
+}
+
+function DeviceTypeBadge({ device }: { device: Device }) {
+  if (device.device_type === 'wiim') {
+    return (
+      <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full">
+        WiiM
+      </span>
+    )
+  }
+  return (
+    <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded-full">
+      UPnP
+    </span>
   )
 }
 
@@ -118,6 +140,7 @@ function DeviceCard({
   onToggleSlave,
   onVolumeChange,
   onMuteToggle,
+  onToggleEnabled,
   onDissolveGroup,
 }: {
   device: Device
@@ -128,6 +151,7 @@ function DeviceCard({
   onToggleSlave: () => void
   onVolumeChange: (value: number) => void
   onMuteToggle: () => void
+  onToggleEnabled: () => void
   onDissolveGroup: () => void
 }) {
   const volumePercent = Math.round(device.volume * 100)
@@ -136,7 +160,9 @@ function DeviceCard({
     <div
       onClick={grouping ? onToggleSlave : onSelect}
       className={`bg-[var(--color-surface-elevated)] rounded-xl p-4 transition-all cursor-pointer ${
-        isActive && !grouping ? 'ring-1 ring-[var(--color-accent)]' : ''
+        !device.enabled ? 'opacity-50' : ''
+      } ${
+        isActive && !grouping && device.enabled ? 'ring-1 ring-[var(--color-accent)]' : ''
       } ${isSelectedSlave ? 'ring-1 ring-[var(--color-accent)] bg-[var(--color-accent)]/5' : ''}`}
     >
       <div className="flex items-center justify-between mb-3">
@@ -155,7 +181,8 @@ function DeviceCard({
           <div>
             <div className="font-medium text-sm flex items-center gap-2">
               {device.name}
-              {isActive && !grouping && (
+              <DeviceTypeBadge device={device} />
+              {isActive && !grouping && device.enabled && (
                 <span className="text-[10px] text-[var(--color-accent)] bg-[var(--color-accent)]/10 px-1.5 py-0.5 rounded-full">
                   Active
                 </span>
@@ -172,18 +199,33 @@ function DeviceCard({
             </div>
           </div>
         </div>
-        {device.is_master && !grouping && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDissolveGroup() }}
-            className="text-xs text-[var(--color-text-secondary)] hover:text-red-400 transition-colors px-2 py-1"
-          >
-            Ungroup
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {device.is_master && !grouping && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDissolveGroup() }}
+              className="text-xs text-[var(--color-text-secondary)] hover:text-red-400 transition-colors px-2 py-1"
+            >
+              Ungroup
+            </button>
+          )}
+          {!grouping && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleEnabled() }}
+              className={`w-9 h-5 rounded-full transition-colors relative ${
+                device.enabled ? 'bg-[var(--color-accent)]' : 'bg-white/15'
+              }`}
+              title={device.enabled ? 'Disable device' : 'Enable device'}
+            >
+              <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-all ${
+                device.enabled ? 'left-[18px]' : 'left-[3px]'
+              }`} />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Volume slider */}
-      {!grouping && (
+      {/* Volume slider — only for enabled devices with rendering control */}
+      {!grouping && device.enabled && device.capabilities.rendering_control && (
         <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={onMuteToggle}

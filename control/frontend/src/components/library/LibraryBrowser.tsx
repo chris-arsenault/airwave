@@ -151,14 +151,13 @@ function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: 
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
   const setPlaying = usePlayerStore((s) => s.setPlaying)
 
-  const handleTrackPlay = async (item: LibraryItem, index: number) => {
+  const handleTrackPlay = async (item: LibraryItem) => {
     if (!activeDeviceId) return
-    // Get all track IDs from this listing to build a queue
     const trackItems = items.filter((i) => i.type === 'track')
     const trackIndex = trackItems.findIndex((t) => t.id === item.id)
     await api.play(activeDeviceId, {
       track_ids: trackItems.map((t) => t.id),
-      start_index: trackIndex >= 0 ? trackIndex : index,
+      start_index: Math.max(trackIndex, 0),
     })
     setCurrentTrack({
       id: item.id,
@@ -171,41 +170,82 @@ function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: 
     setPlaying(true)
   }
 
+  const handleAddToQueue = async (item: LibraryItem) => {
+    if (!activeDeviceId) return
+    await api.addToQueue(activeDeviceId, [item.id])
+  }
+
+  const handlePlayContainer = async (item: LibraryItem) => {
+    if (!activeDeviceId) return
+    await api.play(activeDeviceId, { container_id: item.id })
+    setPlaying(true)
+  }
+
   return (
     <div className="space-y-0.5">
-      {items.map((item, i) => (
-        <button
+      {items.map((item) => (
+        <div
           key={item.id}
-          onClick={() => item.type === 'container' ? onSelect(item) : handleTrackPlay(item, i)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors text-left active:scale-[0.99]"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors group"
         >
           {item.type === 'container' ? (
-            <div className="w-10 h-10 rounded-lg bg-[var(--color-surface-elevated)] flex items-center justify-center text-[var(--color-text-secondary)] shrink-0">
-              <FolderIcon />
-            </div>
+            <button
+              onClick={() => onSelect(item)}
+              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+            >
+              <div className="w-10 h-10 rounded-lg bg-[var(--color-surface-elevated)] flex items-center justify-center text-[var(--color-text-secondary)] shrink-0">
+                <FolderIcon />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{item.title ?? 'Unknown'}</div>
+                <div className="text-xs text-[var(--color-text-secondary)] truncate">
+                  {item.child_count ?? 0} items
+                </div>
+              </div>
+              <ChevronRightIcon className="text-[var(--color-text-secondary)] shrink-0" />
+            </button>
           ) : (
-            <div className="w-10 h-10 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center text-[var(--color-accent)] text-xs font-bold shrink-0">
-              {item.track_number ?? '♪'}
-            </div>
+            <>
+              <button
+                onClick={() => handleTrackPlay(item)}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                title="Play"
+              >
+                <div className="w-10 h-10 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center shrink-0 group-hover:bg-[var(--color-accent)]/20 transition-colors">
+                  <PlayIcon />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{item.title ?? 'Unknown'}</div>
+                  <div className="text-xs text-[var(--color-text-secondary)] truncate">
+                    {[item.artist, item.album].filter(Boolean).join(' \u2014 ') || '\u00A0'}
+                  </div>
+                </div>
+              </button>
+              {item.duration && (
+                <span className="text-xs text-[var(--color-text-secondary)] shrink-0">
+                  {item.duration}
+                </span>
+              )}
+              <button
+                onClick={() => handleAddToQueue(item)}
+                className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
+                title="Add to queue"
+              >
+                <PlusIcon />
+              </button>
+            </>
           )}
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">{item.title ?? 'Unknown'}</div>
-            <div className="text-xs text-[var(--color-text-secondary)] truncate">
-              {item.type === 'container'
-                ? `${item.child_count ?? 0} items`
-                : [item.artist, item.album].filter(Boolean).join(' — ') || '\u00A0'
-              }
-            </div>
-          </div>
-          {item.type === 'track' && item.duration && (
-            <div className="text-xs text-[var(--color-text-secondary)] shrink-0">
-              {item.duration}
-            </div>
+          {/* Play all button for containers */}
+          {item.type === 'container' && activeDeviceId && (
+            <button
+              onClick={() => handlePlayContainer(item)}
+              className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
+              title="Play all"
+            >
+              <PlayIcon />
+            </button>
           )}
-          {item.type === 'container' && (
-            <ChevronRightIcon className="text-[var(--color-text-secondary)] shrink-0" />
-          )}
-        </button>
+        </div>
       ))}
     </div>
   )
@@ -242,6 +282,23 @@ function ChevronRightIcon({ className = '' }: { className?: string }) {
   return (
     <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <polyline points="9,18 15,12 9,6" />
+    </svg>
+  )
+}
+
+function PlayIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--color-accent)" stroke="none">
+      <polygon points="5,3 19,12 5,21" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   )
 }

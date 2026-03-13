@@ -10,6 +10,7 @@ vi.mock('../../api/client', () => ({
     toggleMute: vi.fn(() => Promise.resolve()),
     createGroup: vi.fn(() => Promise.resolve()),
     dissolveGroup: vi.fn(() => Promise.resolve()),
+    setEnabled: vi.fn(() => Promise.resolve()),
   },
 }))
 
@@ -20,6 +21,9 @@ function makeDevice(overrides: Partial<Device> = {}): Device {
     ip: '192.168.1.10',
     model: 'WiiM Pro',
     firmware: '4.8.1',
+    device_type: 'wiim',
+    enabled: true,
+    capabilities: { av_transport: true, rendering_control: true, wiim_extended: true },
     volume: 0.5,
     muted: false,
     source: 'wifi',

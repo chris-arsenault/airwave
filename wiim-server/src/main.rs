@@ -116,6 +116,7 @@ async fn main() {
         .route("/devices/{id}", get(control::devices::get_device))
         .route("/devices/{id}/volume", post(control::devices::set_volume))
         .route("/devices/{id}/mute", post(control::devices::toggle_mute))
+        .route("/devices/{id}/enabled", post(control::devices::set_enabled))
         // Playback (under /playback/{target} to match frontend)
         .route("/playback/{id}", get(control::playback::get_state))
         .route("/playback/{id}/play", post(control::playback::play))
@@ -193,17 +194,15 @@ async fn main() {
 
     let bind_addr = SocketAddr::from(([0, 0, 0, 0], cfg.network.port));
     let listener = {
-        let socket =
-            socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None)
-                .expect("failed to create TCP socket");
+        let socket = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None)
+            .expect("failed to create TCP socket");
         socket.set_reuse_address(true).expect("SO_REUSEADDR");
         socket.set_nonblocking(true).expect("set_nonblocking");
         socket
             .bind(&socket2::SockAddr::from(bind_addr))
             .expect("failed to bind TCP socket");
         socket.listen(1024).expect("TCP listen");
-        tokio::net::TcpListener::from_std(socket.into())
-            .expect("tokio TcpListener from std")
+        tokio::net::TcpListener::from_std(socket.into()).expect("tokio TcpListener from std")
     };
     info!("HTTP server listening on {bind_addr}");
 

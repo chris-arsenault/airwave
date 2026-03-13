@@ -17,6 +17,8 @@ export const api = {
     request('/devices/' + id + '/volume', { method: 'POST', body: JSON.stringify({ volume }) }),
   toggleMute: (id: string) =>
     request('/devices/' + id + '/mute', { method: 'POST' }),
+  setEnabled: (id: string, enabled: boolean) =>
+    request('/devices/' + id + '/enabled', { method: 'POST', body: JSON.stringify({ enabled }) }),
 
   // Library
   browse: (id = '0', start = 0, count = 0) =>
@@ -71,12 +73,21 @@ export const api = {
 }
 
 // Types
+export interface DeviceCapabilities {
+  av_transport: boolean
+  rendering_control: boolean
+  wiim_extended: boolean
+}
+
 export interface Device {
   id: string
   name: string
   ip: string
   model: string | null
   firmware: string | null
+  device_type: string
+  enabled: boolean
+  capabilities: DeviceCapabilities
   volume: number
   muted: boolean
   source: string | null

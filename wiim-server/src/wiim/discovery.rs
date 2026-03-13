@@ -7,13 +7,17 @@ use roxmltree::Document;
 use tokio::net::UdpSocket;
 use tracing::{debug, info, warn};
 
-use super::device::{DeviceManager, WiimDevice};
+use super::device::{DeviceCapabilities, DeviceManager, DeviceParams, ServiceUrls, WiimDevice};
 use crate::control::events::EventBus;
 
 const SSDP_MULTICAST: Ipv4Addr = Ipv4Addr::new(239, 255, 255, 250);
 const SSDP_PORT: u16 = 1900;
 const MEDIA_RENDERER_URN: &str = "urn:schemas-upnp-org:device:MediaRenderer:1";
 const UPNP_NS: &str = "urn:schemas-upnp-org:device-1-0";
+
+const AV_TRANSPORT_TYPE: &str = "urn:schemas-upnp-org:service:AVTransport:1";
+const RENDERING_CONTROL_TYPE: &str = "urn:schemas-upnp-org:service:RenderingControl:1";
+const PLAY_QUEUE_TYPE: &str = "urn:schemas-wiimu-com:service:PlayQueue:1";
 
 struct DiscoveredLocation {
     location: String,
@@ -27,6 +31,8 @@ struct DeviceInfo {
     model_number: Option<String>,
     ip: String,
     port: u16,
+    service_urls: ServiceUrls,
+    has_play_queue: bool,
 }
 
 /// Send M-SEARCH for MediaRenderer devices and collect responses.
@@ -92,7 +98,6 @@ async fn search_renderers(bind_ip: Ipv4Addr) -> Vec<DiscoveredLocation> {
 }
 
 fn parse_response(text: &str) -> Option<DiscoveredLocation> {
-    // Must be an HTTP response (200 OK) or contain LOCATION
     let location = text
         .lines()
         .find(|l| l.to_ascii_uppercase().starts_with("LOCATION:"))
@@ -107,7 +112,7 @@ fn parse_response(text: &str) -> Option<DiscoveredLocation> {
     Some(DiscoveredLocation { location, usn })
 }
 
-/// Fetch description.xml and extract device info.
+/// Fetch description.xml and extract device info including service control URLs.
 async fn fetch_device_info(
     client: &reqwest::Client,
     location: &str,
@@ -126,6 +131,35 @@ async fn fetch_device_info(
     let model_name = child_text(&device_node, "modelName");
     let model_number = child_text(&device_node, "modelNumber");
 
+    // Parse service list to get control URLs
+    let mut service_urls = ServiceUrls::default();
+    let mut has_play_queue = false;
+
+    for service_node in doc.descendants().filter(|n| {
+        n.is_element()
+            && n.tag_name().name() == "service"
+            && n.parent()
+                .is_some_and(|p| p.tag_name().name() == "serviceList")
+    }) {
+        let service_type = child_text_any_ns(&service_node, "serviceType").unwrap_or_default();
+        let control_url = child_text_any_ns(&service_node, "controlURL");
+
+        if let Some(url) = control_url {
+            if service_type.contains("AVTransport") {
+                service_urls.av_transport = Some(url);
+            } else if service_type.contains("RenderingControl") {
+                service_urls.rendering_control = Some(url);
+            } else if service_type.contains("PlayQueue") {
+                service_urls.play_queue = Some(url.clone());
+                has_play_queue = true;
+            }
+        }
+
+        if service_type == PLAY_QUEUE_TYPE {
+            has_play_queue = true;
+        }
+    }
+
     // Extract IP and port from the location URL
     let url: url::Url = location.parse().map_err(|_| "Invalid location URL")?;
     let ip = url.host_str().ok_or("No host in URL")?.to_string();
@@ -138,6 +172,8 @@ async fn fetch_device_info(
         model_number,
         ip,
         port,
+        service_urls,
+        has_play_queue,
     })
 }
 
@@ -150,6 +186,27 @@ fn child_text(parent: &roxmltree::Node, local_name: &str) -> Option<String> {
                 && (n.tag_name().namespace() == Some(UPNP_NS) || n.tag_name().namespace().is_none())
         })
         .and_then(|n| n.text().map(|t| t.trim().to_string()))
+}
+
+/// Like child_text but ignores namespace entirely — needed for service elements
+/// which may or may not carry the UPnP namespace.
+fn child_text_any_ns(parent: &roxmltree::Node, local_name: &str) -> Option<String> {
+    parent
+        .children()
+        .find(|n| n.is_element() && n.tag_name().name() == local_name)
+        .and_then(|n| n.text().map(|t| t.trim().to_string()))
+}
+
+/// Probe standard AVTransport by calling GetTransportInfo.
+/// Returns true if the device responds successfully.
+async fn probe_av_transport(device: &WiimDevice) -> bool {
+    device.av_transport.get_transport_info().await.is_ok()
+}
+
+/// Probe standard RenderingControl by calling GetVolume.
+/// Returns true if the device responds successfully.
+async fn probe_rendering_control(device: &WiimDevice) -> bool {
+    device.rendering.get_volume().await.is_ok()
 }
 
 /// Run periodic SSDP discovery of MediaRenderer devices.
@@ -182,23 +239,54 @@ pub async fn run_discovery(
                     current_ids.insert(id.clone());
 
                     if !device_manager.contains(&id) {
-                        info!(
-                            "Discovered new device: {} ({}) at {}:{}",
-                            info.friendly_name, id, info.ip, info.port
-                        );
+                        // Build device with parsed service URLs, probe to determine capabilities
+                        let initial_caps = DeviceCapabilities {
+                            av_transport: info.service_urls.av_transport.is_some(),
+                            rendering_control: info.service_urls.rendering_control.is_some(),
+                            wiim_extended: info.has_play_queue,
+                        };
 
-                        let mut device = WiimDevice::new(
-                            info.ip,
-                            info.port,
-                            info.friendly_name,
-                            info.model_name,
-                            info.model_number,
-                            info.udn,
-                        );
+                        let mut device = WiimDevice::new(DeviceParams {
+                            ip: info.ip,
+                            port: info.port,
+                            name: info.friendly_name,
+                            model: info.model_name,
+                            firmware: info.model_number,
+                            udn: info.udn,
+                            service_urls: info.service_urls,
+                            capabilities: initial_caps,
+                        });
 
-                        // Fetch initial state
-                        match device.rendering.get_control_device_info().await {
-                            Ok(dev_info) => {
+                        // Probe standard SOAP to verify the device actually responds
+                        let av_ok = probe_av_transport(&device).await;
+                        let rc_ok = probe_rendering_control(&device).await;
+
+                        if !av_ok && !rc_ok {
+                            debug!(
+                                "Device {} ({}) did not respond to standard SOAP probes, skipping",
+                                device.name, id
+                            );
+                            current_ids.remove(&id);
+                            continue;
+                        }
+
+                        device.capabilities.av_transport = av_ok;
+                        device.capabilities.rendering_control = rc_ok;
+
+                        // Fetch initial volume/mute if rendering control works
+                        if rc_ok {
+                            if let Ok(vol) = device.rendering.get_volume().await {
+                                device.volume = vol as f64 / 100.0;
+                            }
+                            if let Ok(muted) = device.rendering.get_mute().await {
+                                device.muted = muted;
+                            }
+                        }
+
+                        // For WiiM devices, use proprietary GetControlDeviceInfo for
+                        // accurate volume/mute/name (standard UPnP can report stale mute)
+                        if device.capabilities.wiim_extended {
+                            if let Ok(dev_info) = device.rendering.get_control_device_info().await {
                                 device.volume = dev_info.volume as f64 / 100.0;
                                 device.muted = dev_info.muted;
                                 device.name = dev_info
@@ -208,10 +296,12 @@ pub async fn run_discovery(
                                     .cloned()
                                     .unwrap_or(device.name);
                             }
-                            Err(e) => {
-                                debug!("Could not fetch device info for {}: {e}", device.id);
-                            }
                         }
+
+                        info!(
+                            "Discovered {} device: {} ({}) at {}:{}",
+                            device.device_type, device.name, id, device.ip, device.port
+                        );
 
                         events.publish(
                             "device_added",
@@ -219,6 +309,7 @@ pub async fn run_discovery(
                                 "id": device.id,
                                 "name": device.name,
                                 "ip": device.ip,
+                                "device_type": device.device_type,
                             }),
                         );
 
