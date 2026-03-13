@@ -27,7 +27,9 @@ vi.mock('../../api/client', () => ({
 function makeDevice(overrides: Partial<Device> = {}): Device {
   return {
     id: 'dev-1', name: 'Living Room', ip: '192.168.1.10', model: 'WiiM Pro',
-    firmware: '4.8.1', volume: 0.5, muted: false, source: 'wifi',
+    firmware: '4.8.1', device_type: 'wiim', enabled: true,
+    capabilities: { av_transport: true, rendering_control: true, wiim_extended: true },
+    volume: 0.5, muted: false, source: 'wifi',
     group_id: null, is_master: false, ...overrides,
   }
 }
