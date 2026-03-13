@@ -1,0 +1,255 @@
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { api, type LibraryItem } from '../../api/client'
+import { useDeviceStore } from '../../stores/deviceStore'
+import { usePlayerStore } from '../../stores/playerStore'
+
+const CATEGORY_ICONS: Record<string, string> = {
+  Artists: '🎤',
+  Albums: '💿',
+  Genres: '🎵',
+  'All Tracks': '♫',
+}
+
+interface BreadcrumbEntry {
+  id: string
+  title: string
+}
+
+export function LibraryBrowser() {
+  const [path, setPath] = useState<BreadcrumbEntry[]>([{ id: '0', title: 'Library' }])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searching, setSearching] = useState(false)
+
+  const currentId = path[path.length - 1].id
+
+  const browseQuery = useQuery({
+    queryKey: ['library', 'browse', currentId],
+    queryFn: () => api.browse(currentId),
+    enabled: !searching,
+  })
+
+  const searchQueryResult = useQuery({
+    queryKey: ['library', 'search', searchQuery],
+    queryFn: () => api.search(searchQuery),
+    enabled: searching && searchQuery.length >= 2,
+  })
+
+  const items = searching ? searchQueryResult.data?.items : browseQuery.data?.items
+  const isLoading = searching ? searchQueryResult.isLoading : browseQuery.isLoading
+
+  const navigateTo = (item: LibraryItem) => {
+    if (item.type === 'container') {
+      setPath([...path, { id: item.id, title: item.title ?? 'Unknown' }])
+      setSearching(false)
+      setSearchQuery('')
+    }
+  }
+
+  const navigateBack = () => {
+    if (path.length > 1) {
+      setPath(path.slice(0, -1))
+    }
+  }
+
+  const navigateToBreadcrumb = (index: number) => {
+    setPath(path.slice(0, index + 1))
+    setSearching(false)
+    setSearchQuery('')
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setSearching(value.length > 0)
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Search bar */}
+      <div className="relative">
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+        <input
+          type="text"
+          placeholder="Search tracks, artists, albums..."
+          value={searchQuery}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="w-full bg-[var(--color-surface-elevated)] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-[var(--color-accent)] transition-colors placeholder:text-[var(--color-text-secondary)]"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => handleSearchChange('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+          >
+            <XIcon />
+          </button>
+        )}
+      </div>
+
+      {/* Breadcrumbs */}
+      {!searching && path.length > 1 && (
+        <div className="flex items-center gap-1 text-sm overflow-x-auto">
+          <button onClick={navigateBack} className="text-[var(--color-text-secondary)] shrink-0 p-1">
+            <ChevronLeftIcon />
+          </button>
+          {path.map((entry, i) => (
+            <span key={entry.id} className="flex items-center gap-1 shrink-0">
+              {i > 0 && <span className="text-[var(--color-text-secondary)]">/</span>}
+              <button
+                onClick={() => navigateToBreadcrumb(i)}
+                className={i === path.length - 1
+                  ? 'text-[var(--color-text-primary)] font-medium'
+                  : 'text-[var(--color-text-secondary)]'
+                }
+              >
+                {entry.title}
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Content */}
+      {isLoading ? (
+        <div className="text-center py-12 text-[var(--color-text-secondary)] text-sm">Loading...</div>
+      ) : !items?.length ? (
+        <div className="text-center py-12 text-[var(--color-text-secondary)] text-sm">
+          {searching ? 'No results found' : 'Empty'}
+        </div>
+      ) : currentId === '0' && !searching ? (
+        <CategoryGrid items={items} onSelect={navigateTo} />
+      ) : (
+        <ItemList items={items} onSelect={navigateTo} />
+      )}
+    </div>
+  )
+}
+
+function CategoryGrid({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: LibraryItem) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => onSelect(item)}
+          className="bg-[var(--color-surface-elevated)] rounded-xl p-5 text-left hover:bg-[var(--color-surface-hover)] transition-colors active:scale-[0.98]"
+        >
+          <div className="text-2xl mb-2">{CATEGORY_ICONS[item.title ?? ''] ?? '📁'}</div>
+          <div className="text-sm font-medium">{item.title}</div>
+          {item.child_count != null && (
+            <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+              {item.child_count} {item.child_count === 1 ? 'item' : 'items'}
+            </div>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: LibraryItem) => void }) {
+  const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
+  const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
+  const setPlaying = usePlayerStore((s) => s.setPlaying)
+
+  const handleTrackPlay = async (item: LibraryItem, index: number) => {
+    if (!activeDeviceId) return
+    // Get all track IDs from this listing to build a queue
+    const trackItems = items.filter((i) => i.type === 'track')
+    const trackIndex = trackItems.findIndex((t) => t.id === item.id)
+    await api.play(activeDeviceId, {
+      track_ids: trackItems.map((t) => t.id),
+      start_index: trackIndex >= 0 ? trackIndex : index,
+    })
+    setCurrentTrack({
+      id: item.id,
+      title: item.title ?? 'Unknown',
+      artist: item.artist ?? null,
+      album: item.album ?? null,
+      duration: item.duration ?? null,
+      stream_url: item.stream_url ?? null,
+    })
+    setPlaying(true)
+  }
+
+  return (
+    <div className="space-y-0.5">
+      {items.map((item, i) => (
+        <button
+          key={item.id}
+          onClick={() => item.type === 'container' ? onSelect(item) : handleTrackPlay(item, i)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors text-left active:scale-[0.99]"
+        >
+          {item.type === 'container' ? (
+            <div className="w-10 h-10 rounded-lg bg-[var(--color-surface-elevated)] flex items-center justify-center text-[var(--color-text-secondary)] shrink-0">
+              <FolderIcon />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center text-[var(--color-accent)] text-xs font-bold shrink-0">
+              {item.track_number ?? '♪'}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{item.title ?? 'Unknown'}</div>
+            <div className="text-xs text-[var(--color-text-secondary)] truncate">
+              {item.type === 'container'
+                ? `${item.child_count ?? 0} items`
+                : [item.artist, item.album].filter(Boolean).join(' — ') || '\u00A0'
+              }
+            </div>
+          </div>
+          {item.type === 'track' && item.duration && (
+            <div className="text-xs text-[var(--color-text-secondary)] shrink-0">
+              {item.duration}
+            </div>
+          )}
+          {item.type === 'container' && (
+            <ChevronRightIcon className="text-[var(--color-text-secondary)] shrink-0" />
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Icons
+function SearchIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  )
+}
+
+function XIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <polyline points="15,18 9,12 15,6" />
+    </svg>
+  )
+}
+
+function ChevronRightIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <polyline points="9,18 15,12 9,6" />
+    </svg>
+  )
+}
+
+function FolderIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
