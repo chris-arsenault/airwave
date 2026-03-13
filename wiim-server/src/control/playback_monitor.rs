@@ -297,10 +297,7 @@ fn broadcast_playback_state(
                         title: t.meta.title.clone(),
                         artist: Some(t.meta.artist.clone()),
                         album: Some(t.meta.album.clone()),
-                        duration: t
-                            .meta
-                            .duration
-                            .map(|d| format_duration(d.as_secs_f64())),
+                        duration: t.meta.duration.map(|d| format_duration(d.as_secs_f64())),
                         stream_url: Some(format!("{}/media/{}", base_url, t.id)),
                     })
                 } else {

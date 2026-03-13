@@ -97,7 +97,10 @@ pub fn extract_art(path: &Path) -> Option<(Vec<u8>, String)> {
         .find(|p| p.pic_type() == PictureType::CoverFront)
         .or_else(|| pictures.first())?;
 
-    let mime = pic.mime_type().map(|m| m.to_string()).unwrap_or_else(|| "image/jpeg".to_string());
+    let mime = pic
+        .mime_type()
+        .map(|m| m.to_string())
+        .unwrap_or_else(|| "image/jpeg".to_string());
     Some((pic.data().to_vec(), mime))
 }
 

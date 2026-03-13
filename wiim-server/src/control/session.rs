@@ -64,11 +64,7 @@ pub struct PlaySession {
 impl PlaySession {
     /// Create a new session from a library source.
     /// Returns None if the source has no playable tracks.
-    pub fn new(
-        source_id: &str,
-        start_track_id: Option<&str>,
-        library: &Library,
-    ) -> Option<Self> {
+    pub fn new(source_id: &str, start_track_id: Option<&str>, library: &Library) -> Option<Self> {
         let source_obj = library.get(source_id)?;
 
         let (source, groups) = match source_obj {

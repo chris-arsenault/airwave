@@ -55,7 +55,11 @@ pub async fn update_track(
 
     state.library.write().refresh_track(&track_id, new_meta);
 
-    info!("Updated metadata for track {} ({})", track_id, path.display());
+    info!(
+        "Updated metadata for track {} ({})",
+        track_id,
+        path.display()
+    );
     Ok(StatusCode::OK)
 }
 
@@ -194,11 +198,7 @@ pub async fn bulk_rename_artist(
                 } else {
                     None
                 },
-                album_artist: if *aa_match {
-                    Some(to.clone())
-                } else {
-                    None
-                },
+                album_artist: if *aa_match { Some(to.clone()) } else { None },
                 ..Default::default()
             };
             match tag_writer::write_tags(path, &update) {
@@ -246,10 +246,7 @@ pub struct BulkResult {
     pub failed: usize,
 }
 
-fn collect_track_paths(
-    lib: &library::Library,
-    container_id: &str,
-) -> Vec<(String, PathBuf)> {
+fn collect_track_paths(lib: &library::Library, container_id: &str) -> Vec<(String, PathBuf)> {
     let mut result = Vec::new();
     for child in lib.children_of(container_id) {
         match child {

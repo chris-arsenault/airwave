@@ -53,10 +53,7 @@ pub async fn get_state(
                         title: t.meta.title.clone(),
                         artist: Some(t.meta.artist.clone()),
                         album: Some(t.meta.album.clone()),
-                        duration: t
-                            .meta
-                            .duration
-                            .map(|d| format_duration(d.as_secs_f64())),
+                        duration: t.meta.duration.map(|d| format_duration(d.as_secs_f64())),
                         stream_url: Some(format!("{}/media/{}", state.base_url, t.id)),
                     })
                 } else {
@@ -443,11 +440,7 @@ pub async fn session_play(
 
     let session = {
         let library = state.library.read();
-        PlaySession::new(
-            &body.source_id,
-            body.start_track_id.as_deref(),
-            &library,
-        )
+        PlaySession::new(&body.source_id, body.start_track_id.as_deref(), &library)
     };
 
     let session = session.ok_or(StatusCode::BAD_REQUEST)?;
@@ -551,10 +544,9 @@ pub async fn session_next(
             Ok(StatusCode::OK)
         }
         None => {
-            state.events.publish(
-                "session_ended",
-                &serde_json::json!({ "device_id": target }),
-            );
+            state
+                .events
+                .publish("session_ended", &serde_json::json!({ "device_id": target }));
             Ok(StatusCode::OK)
         }
     }
@@ -612,8 +604,8 @@ pub async fn session_set_shuffle(
     Path(target): Path<String>,
     Json(body): Json<ShuffleModeRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let mode: ShuffleMode =
-        serde_json::from_value(serde_json::Value::String(body.mode)).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let mode: ShuffleMode = serde_json::from_value(serde_json::Value::String(body.mode))
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     let lock = state.sessions.get_or_create(&target);
     let mut guard = lock.write();
     match guard.as_mut() {
@@ -630,8 +622,8 @@ pub async fn session_set_repeat(
     Path(target): Path<String>,
     Json(body): Json<RepeatModeRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let mode: RepeatMode =
-        serde_json::from_value(serde_json::Value::String(body.mode)).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let mode: RepeatMode = serde_json::from_value(serde_json::Value::String(body.mode))
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     let lock = state.sessions.get_or_create(&target);
     let mut guard = lock.write();
     match guard.as_mut() {

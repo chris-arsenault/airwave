@@ -452,10 +452,9 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
             children.sort_by(|a, b| {
                 match (objects.get(a), objects.get(b)) {
                     // Both containers: sort alphabetically by title
-                    (
-                        Some(LibraryObject::Container(ca)),
-                        Some(LibraryObject::Container(cb)),
-                    ) => ca.title.to_lowercase().cmp(&cb.title.to_lowercase()),
+                    (Some(LibraryObject::Container(ca)), Some(LibraryObject::Container(cb))) => {
+                        ca.title.to_lowercase().cmp(&cb.title.to_lowercase())
+                    }
                     // Both tracks: sort by disc then track number, fall back to title
                     (Some(LibraryObject::Track(ta)), Some(LibraryObject::Track(tb))) => {
                         let da = ta.meta.disc_number.unwrap_or(1);
@@ -464,7 +463,10 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
                             let na = ta.meta.track_number.unwrap_or(u32::MAX);
                             let nb = tb.meta.track_number.unwrap_or(u32::MAX);
                             na.cmp(&nb).then_with(|| {
-                                ta.meta.title.to_lowercase().cmp(&tb.meta.title.to_lowercase())
+                                ta.meta
+                                    .title
+                                    .to_lowercase()
+                                    .cmp(&tb.meta.title.to_lowercase())
                             })
                         })
                     }
