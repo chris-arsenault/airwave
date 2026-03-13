@@ -102,6 +102,7 @@ export interface LibraryItem {
   title: string | null
   artist?: string | null
   album?: string | null
+  album_artist?: string | null
   genre?: string | null
   track_number?: string | null
   class: string | null
@@ -113,7 +114,16 @@ export interface LibraryItem {
   bit_depth?: string | null
 }
 
+export interface ContainerInfo {
+  id: string
+  title: string
+  class?: string
+  artist?: string
+  album?: string
+}
+
 export interface BrowseResult {
+  container?: ContainerInfo
   items: LibraryItem[]
   total: number
 }

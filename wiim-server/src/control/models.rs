@@ -41,6 +41,8 @@ pub struct LibraryItemResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub album: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub album_artist: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub genre: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track_number: Option<String>,
@@ -55,8 +57,22 @@ pub struct LibraryItemResponse {
 
 #[derive(Debug, Serialize)]
 pub struct BrowseResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub container: Option<ContainerInfoResponse>,
     pub items: Vec<LibraryItemResponse>,
     pub total: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ContainerInfoResponse {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artist: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub album: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

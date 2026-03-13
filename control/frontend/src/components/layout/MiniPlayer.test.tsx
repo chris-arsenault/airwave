@@ -8,6 +8,7 @@ vi.mock('../../api/client', () => ({
   api: {
     pause: vi.fn(() => Promise.resolve()),
     resume: vi.fn(() => Promise.resolve()),
+    setVolume: vi.fn(() => Promise.resolve()),
   },
 }))
 
@@ -16,16 +17,23 @@ describe('MiniPlayer', () => {
     usePlayerStore.setState({
       playing: false,
       currentTrack: null,
+      elapsedSeconds: 0,
+      durationSeconds: 0,
     })
     useDeviceStore.setState({
-      devices: [],
-      activeDeviceId: null,
+      devices: [{
+        id: 'dev-1', name: 'Living Room', ip: '192.168.1.10', model: 'WiiM Pro',
+        firmware: '4.8.1', device_type: 'wiim', enabled: true,
+        capabilities: { av_transport: true, rendering_control: true, wiim_extended: true },
+        volume: 0.5, muted: false, source: 'wifi', group_id: null, is_master: false,
+      }],
+      activeDeviceId: 'dev-1',
     })
   })
 
-  it('renders nothing when no track is playing', () => {
-    const { container } = render(<MiniPlayer onExpand={vi.fn()} />)
-    expect(container.innerHTML).toBe('')
+  it('shows idle state when no track is playing', () => {
+    render(<MiniPlayer onExpand={vi.fn()} />)
+    expect(screen.getByText('Not playing')).toBeInTheDocument()
   })
 
   it('shows track info when a track is set', () => {
@@ -38,6 +46,8 @@ describe('MiniPlayer', () => {
         duration: null,
         stream_url: null,
       },
+      elapsedSeconds: 0,
+      durationSeconds: 0,
     })
     render(<MiniPlayer onExpand={vi.fn()} />)
     expect(screen.getByText('Test Song')).toBeInTheDocument()

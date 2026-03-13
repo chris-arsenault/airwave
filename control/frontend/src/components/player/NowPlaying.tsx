@@ -61,7 +61,9 @@ export function NowPlaying({ open, onClose }: Props) {
 
   const handleVolume = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!activeDeviceId) return
-    await api.setVolume(activeDeviceId, parseFloat(e.target.value) / 100)
+    const vol = parseFloat(e.target.value) / 100
+    useDeviceStore.getState().updateDevice(activeDeviceId, { volume: vol })
+    await api.setVolume(activeDeviceId, vol)
   }, [activeDeviceId])
 
   const cycleShuffle = useCallback(async () => {

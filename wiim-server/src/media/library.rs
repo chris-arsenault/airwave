@@ -12,6 +12,7 @@ pub type ObjectId = String;
 /// Virtual container IDs for the top-level browse menu.
 pub const ROOT_ID: &str = "0";
 pub const VC_ARTISTS: &str = "vc_artists";
+pub const VC_ALBUM_ARTISTS: &str = "vc_album_artists";
 pub const VC_ALBUMS: &str = "vc_albums";
 pub const VC_GENRES: &str = "vc_genres";
 pub const VC_ALL: &str = "vc_all";
@@ -88,11 +89,12 @@ impl Library {
                 title: "Root".to_string(),
                 children: vec![
                     VC_ARTISTS.to_string(),
+                    VC_ALBUM_ARTISTS.to_string(),
                     VC_ALBUMS.to_string(),
                     VC_GENRES.to_string(),
                     VC_ALL.to_string(),
                 ],
-                child_count: 4,
+                child_count: 5,
                 upnp_class: "object.container",
             }),
         );
@@ -100,6 +102,7 @@ impl Library {
         // Virtual containers
         for (id, title, class) in [
             (VC_ARTISTS, "Artists", "object.container"),
+            (VC_ALBUM_ARTISTS, "Album Artists", "object.container"),
             (VC_ALBUMS, "Albums", "object.container"),
             (VC_GENRES, "Genres", "object.container"),
             (VC_ALL, "All Tracks", "object.container"),
@@ -181,10 +184,14 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
     let mut lib = Library::new();
     let mut next_id: u64 = 1;
 
-    // Dedup maps for artist view: artist_name -> artist_container_id
+    // Dedup maps for artist view (track artist): artist_name -> artist_container_id
     let mut artist_ids: BTreeMap<String, ObjectId> = BTreeMap::new();
-    // (album_artist, album) -> album_container_id under artist view
+    // (track_artist, album) -> album_container_id under artist view
     let mut artist_album_ids: BTreeMap<(String, String), ObjectId> = BTreeMap::new();
+    // Dedup maps for album artist view: album_artist_name -> container_id
+    let mut album_artist_ids: BTreeMap<String, ObjectId> = BTreeMap::new();
+    // (album_artist, album) -> album_container_id under album artist view
+    let mut album_artist_album_ids: BTreeMap<(String, String), ObjectId> = BTreeMap::new();
     // album_name -> album_container_id under albums view (keyed by (album_artist, album))
     let mut album_view_ids: BTreeMap<(String, String), ObjectId> = BTreeMap::new();
     // genre_name -> genre_container_id
@@ -230,10 +237,10 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
                 }
             };
 
-            // === Artist View: vc_artists → Artist → Album → Track ===
+            // === Artist View: vc_artists → Artist (track artist) → Album → Track ===
 
             let artist_id = artist_ids
-                .entry(meta.album_artist.clone())
+                .entry(meta.artist.clone())
                 .or_insert_with(|| {
                     let id = format!("ar{}", next_id);
                     next_id += 1;
@@ -242,7 +249,7 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
                         LibraryObject::Container(Container {
                             id: id.clone(),
                             parent_id: VC_ARTISTS.to_string(),
-                            title: meta.album_artist.clone(),
+                            title: meta.artist.clone(),
                             children: Vec::new(),
                             child_count: 0,
                             upnp_class: "object.container.person.musicArtist",
@@ -253,7 +260,7 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
                 })
                 .clone();
 
-            let artist_album_key = (meta.album_artist.clone(), meta.album.clone());
+            let artist_album_key = (meta.artist.clone(), meta.album.clone());
             let album_under_artist_id = artist_album_ids
                 .entry(artist_album_key.clone())
                 .or_insert_with(|| {
@@ -271,6 +278,51 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
                         }),
                     );
                     add_child(&mut lib.objects, &artist_id, &id);
+                    id
+                })
+                .clone();
+
+            // === Album Artist View: vc_album_artists → AlbumArtist → Album → Track ===
+
+            let aa_artist_id = album_artist_ids
+                .entry(meta.album_artist.clone())
+                .or_insert_with(|| {
+                    let id = format!("ba{}", next_id);
+                    next_id += 1;
+                    lib.objects.insert(
+                        id.clone(),
+                        LibraryObject::Container(Container {
+                            id: id.clone(),
+                            parent_id: VC_ALBUM_ARTISTS.to_string(),
+                            title: meta.album_artist.clone(),
+                            children: Vec::new(),
+                            child_count: 0,
+                            upnp_class: "object.container.person.musicArtist",
+                        }),
+                    );
+                    add_child(&mut lib.objects, VC_ALBUM_ARTISTS, &id);
+                    id
+                })
+                .clone();
+
+            let aa_album_key = (meta.album_artist.clone(), meta.album.clone());
+            let aa_album_id = album_artist_album_ids
+                .entry(aa_album_key)
+                .or_insert_with(|| {
+                    let id = format!("ab{}", next_id);
+                    next_id += 1;
+                    lib.objects.insert(
+                        id.clone(),
+                        LibraryObject::Container(Container {
+                            id: id.clone(),
+                            parent_id: aa_artist_id.clone(),
+                            title: meta.album.clone(),
+                            children: Vec::new(),
+                            child_count: 0,
+                            upnp_class: "object.container.album.musicAlbum",
+                        }),
+                    );
+                    add_child(&mut lib.objects, &aa_artist_id, &id);
                     id
                 })
                 .clone();
@@ -345,6 +397,8 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
 
             // Add track to artist-view album
             add_child(&mut lib.objects, &album_under_artist_id, &track_id);
+            // Add track to album-artist-view album
+            add_child(&mut lib.objects, &aa_album_id, &track_id);
             // Add track to albums-view album
             add_child(&mut lib.objects, &album_view_id, &track_id);
             // Add track to genre
@@ -353,6 +407,51 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
             }
 
             lib.total_tracks += 1;
+        }
+    }
+
+    // Sort all container children: sub-containers alphabetically, tracks by track number
+    let container_ids: Vec<ObjectId> = lib
+        .objects
+        .iter()
+        .filter_map(|(id, obj)| match obj {
+            LibraryObject::Container(_) => Some(id.clone()),
+            _ => None,
+        })
+        .collect();
+    for cid in &container_ids {
+        if let Some(LibraryObject::Container(c)) = lib.objects.get(cid) {
+            let mut children = c.children.clone();
+            let objects = &lib.objects;
+            children.sort_by(|a, b| {
+                match (objects.get(a), objects.get(b)) {
+                    // Both containers: sort alphabetically by title
+                    (
+                        Some(LibraryObject::Container(ca)),
+                        Some(LibraryObject::Container(cb)),
+                    ) => ca.title.to_lowercase().cmp(&cb.title.to_lowercase()),
+                    // Both tracks: sort by disc then track number, fall back to title
+                    (Some(LibraryObject::Track(ta)), Some(LibraryObject::Track(tb))) => {
+                        let da = ta.meta.disc_number.unwrap_or(1);
+                        let db = tb.meta.disc_number.unwrap_or(1);
+                        da.cmp(&db).then_with(|| {
+                            let na = ta.meta.track_number.unwrap_or(u32::MAX);
+                            let nb = tb.meta.track_number.unwrap_or(u32::MAX);
+                            na.cmp(&nb).then_with(|| {
+                                ta.meta.title.to_lowercase().cmp(&tb.meta.title.to_lowercase())
+                            })
+                        })
+                    }
+                    // Containers before tracks
+                    (Some(LibraryObject::Container(_)), _) => std::cmp::Ordering::Less,
+                    (_, Some(LibraryObject::Container(_))) => std::cmp::Ordering::Greater,
+                    _ => std::cmp::Ordering::Equal,
+                }
+            });
+            // Write back sorted children
+            if let Some(LibraryObject::Container(c)) = lib.objects.get_mut(cid) {
+                c.children = children;
+            }
         }
     }
 
@@ -367,9 +466,10 @@ pub fn scan(music_dirs: &[PathBuf]) -> Library {
     lib.all_track_ids = sorted_ids;
 
     info!(
-        "Library scan complete: {} tracks, {} artists, {} albums, {} genres ({} files scanned)",
+        "Library scan complete: {} tracks, {} artists, {} album artists, {} albums, {} genres ({} files scanned)",
         lib.total_tracks,
         artist_ids.len(),
+        album_artist_ids.len(),
         artist_album_ids.len(),
         genre_ids.len(),
         files_scanned

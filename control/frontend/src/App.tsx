@@ -9,7 +9,9 @@ import { QueueView } from './components/queue/QueueView'
 import { DeviceManager } from './components/devices/DeviceManager'
 import { EQSettings } from './components/devices/EQSettings'
 import { useDeviceStore } from './stores/deviceStore'
+import { usePlayerStore } from './stores/playerStore'
 import { useSSE } from './hooks/useSSE'
+import { usePlaybackPolling } from './hooks/usePlaybackPolling'
 
 const queryClient = new QueryClient()
 
@@ -18,11 +20,16 @@ function AppContent() {
   const [playerExpanded, setPlayerExpanded] = useState(false)
   const setDevices = useDeviceStore((s) => s.setDevices)
   const updateDevice = useDeviceStore((s) => s.updateDevice)
+  const setPlaying = usePlayerStore((s) => s.setPlaying)
+  const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
 
   // Initial device fetch
   useEffect(() => {
     api.getDevices().then(setDevices).catch(console.error)
   }, [setDevices])
+
+  // Poll playback state every 2s
+  usePlaybackPolling()
 
   // SSE real-time updates
   useSSE({
@@ -33,6 +40,26 @@ function AppContent() {
     device_state: (data) => {
       const { device_id, ...update } = data as { device_id: string; [key: string]: unknown }
       updateDevice(device_id, update)
+    },
+    volume_changed: (data) => {
+      const { device_id, volume } = data as { device_id: string; volume: number }
+      updateDevice(device_id, { volume })
+    },
+    mute_changed: (data) => {
+      const { device_id, muted } = data as { device_id: string; muted: boolean }
+      updateDevice(device_id, { muted })
+    },
+    track_changed: (data) => {
+      const { track } = data as { device_id: string; track: { id: string; title: string; artist: string | null } }
+      if (track) {
+        setCurrentTrack({ id: track.id, title: track.title, artist: track.artist, album: null, duration: null, stream_url: null })
+      }
+    },
+    playback_started: () => setPlaying(true),
+    playback_stopped: () => setPlaying(false),
+    queue_ended: () => {
+      setPlaying(false)
+      setCurrentTrack(null)
     },
   })
 

@@ -17,6 +17,7 @@ use axum::Router;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 
 #[derive(Clone)]
@@ -31,7 +32,7 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "wiim_server=info".parse().unwrap()),
+                .unwrap_or_else(|_| "wiim_server=info,tower_http=info".parse().unwrap()),
         )
         .init();
 
@@ -190,7 +191,8 @@ async fn main() {
         .nest("/api", control_router)
         // Admin/config API (separate prefix to avoid nest collision)
         .nest("/admin", api_router)
-        .with_state(state);
+        .with_state(state)
+        .layer(TraceLayer::new_for_http());
 
     let bind_addr = SocketAddr::from(([0, 0, 0, 0], cfg.network.port));
     let listener = {

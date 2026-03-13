@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api, type LibraryItem } from '../../api/client'
+import { api, type LibraryItem, type ContainerInfo } from '../../api/client'
 import { useDeviceStore } from '../../stores/deviceStore'
 import { usePlayerStore } from '../../stores/playerStore'
 
 const CATEGORY_ICONS: Record<string, string> = {
-  Artists: '🎤',
-  Albums: '💿',
-  Genres: '🎵',
-  'All Tracks': '♫',
+  Artists: '\uD83C\uDFA4',
+  'Album Artists': '\uD83C\uDFB6',
+  Albums: '\uD83D\uDCBF',
+  Genres: '\uD83C\uDFB5',
+  'All Tracks': '\u266B',
 }
 
 interface BreadcrumbEntry {
@@ -35,6 +36,7 @@ export function LibraryBrowser() {
     enabled: searching && searchQuery.length >= 2,
   })
 
+  const containerInfo = browseQuery.data?.container
   const items = searching ? searchQueryResult.data?.items : browseQuery.data?.items
   const isLoading = searching ? searchQueryResult.isLoading : browseQuery.isLoading
 
@@ -108,6 +110,11 @@ export function LibraryBrowser() {
         </div>
       )}
 
+      {/* Container header with artist/album info and queue-all button */}
+      {!searching && containerInfo && (containerInfo.artist || containerInfo.album) && (
+        <ContainerHeader info={containerInfo} />
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="text-center py-12 text-[var(--color-text-secondary)] text-sm">Loading...</div>
@@ -124,6 +131,48 @@ export function LibraryBrowser() {
   )
 }
 
+function ContainerHeader({ info }: { info: ContainerInfo }) {
+  const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
+  const setPlaying = usePlayerStore((s) => s.setPlaying)
+
+  const isAlbum = info.class === 'object.container.album.musicAlbum'
+  const isArtist = info.class === 'object.container.person.musicArtist'
+
+  const handleQueueAll = async () => {
+    if (!activeDeviceId) return
+    await api.play(activeDeviceId, { container_id: info.id })
+    setPlaying(true)
+  }
+
+  return (
+    <div className="bg-[var(--color-surface-elevated)] rounded-xl px-4 py-3 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        {isArtist && (
+          <div className="text-base font-semibold truncate">{info.artist}</div>
+        )}
+        {isAlbum && (
+          <>
+            <div className="text-base font-semibold truncate">{info.album}</div>
+            {info.artist && (
+              <div className="text-sm text-[var(--color-text-secondary)] truncate">{info.artist}</div>
+            )}
+          </>
+        )}
+      </div>
+      {activeDeviceId && (isArtist || isAlbum) && (
+        <button
+          onClick={handleQueueAll}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-accent)] text-white text-xs font-medium active:scale-95 transition-transform"
+          title="Play all"
+        >
+          <PlayIcon />
+          Play All
+        </button>
+      )}
+    </div>
+  )
+}
+
 function CategoryGrid({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: LibraryItem) => void }) {
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -133,7 +182,7 @@ function CategoryGrid({ items, onSelect }: { items: LibraryItem[]; onSelect: (it
           onClick={() => onSelect(item)}
           className="bg-[var(--color-surface-elevated)] rounded-xl p-5 text-left hover:bg-[var(--color-surface-hover)] transition-colors active:scale-[0.98]"
         >
-          <div className="text-2xl mb-2">{CATEGORY_ICONS[item.title ?? ''] ?? '📁'}</div>
+          <div className="text-2xl mb-2">{CATEGORY_ICONS[item.title ?? ''] ?? '\uD83D\uDCC1'}</div>
           <div className="text-sm font-medium">{item.title}</div>
           {item.child_count != null && (
             <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
@@ -153,12 +202,8 @@ function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: 
 
   const handleTrackPlay = async (item: LibraryItem) => {
     if (!activeDeviceId) return
-    const trackItems = items.filter((i) => i.type === 'track')
-    const trackIndex = trackItems.findIndex((t) => t.id === item.id)
-    await api.play(activeDeviceId, {
-      track_ids: trackItems.map((t) => t.id),
-      start_index: Math.max(trackIndex, 0),
-    })
+    // Play only this single track
+    await api.play(activeDeviceId, { track_id: item.id })
     setCurrentTrack({
       id: item.id,
       title: item.title ?? 'Unknown',
@@ -199,7 +244,10 @@ function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: 
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{item.title ?? 'Unknown'}</div>
                 <div className="text-xs text-[var(--color-text-secondary)] truncate">
-                  {item.child_count ?? 0} items
+                  {item.artist && item.album
+                    ? `${item.artist} \u2014 ${item.child_count ?? 0} tracks`
+                    : `${item.child_count ?? 0} items`
+                  }
                 </div>
               </div>
               <ChevronRightIcon className="text-[var(--color-text-secondary)] shrink-0" />
@@ -215,7 +263,12 @@ function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: 
                   <PlayIcon />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{item.title ?? 'Unknown'}</div>
+                  <div className="text-sm font-medium truncate">
+                    {item.track_number && (
+                      <span className="text-[var(--color-text-secondary)] mr-1.5">{item.track_number}.</span>
+                    )}
+                    {item.title ?? 'Unknown'}
+                  </div>
                   <div className="text-xs text-[var(--color-text-secondary)] truncate">
                     {[item.artist, item.album].filter(Boolean).join(' \u2014 ') || '\u00A0'}
                   </div>

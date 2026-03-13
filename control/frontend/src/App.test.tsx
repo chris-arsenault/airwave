@@ -21,6 +21,11 @@ vi.mock('./hooks/useSSE', () => ({
   useSSE: vi.fn(),
 }))
 
+// Mock playback polling
+vi.mock('./hooks/usePlaybackPolling', () => ({
+  usePlaybackPolling: vi.fn(),
+}))
+
 // Mock framer-motion to avoid animation issues in tests
 vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
@@ -60,7 +65,7 @@ describe('App', () => {
     renderWithProviders(<App />)
     fireEvent.click(screen.getByText('Queue'))
     await waitFor(() => {
-      expect(screen.getByText('No device selected')).toBeInTheDocument()
+      expect(screen.getAllByText('No device selected').length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -73,6 +78,6 @@ describe('App', () => {
   it('navigates to Settings tab', () => {
     renderWithProviders(<App />)
     fireEvent.click(screen.getByText('Settings'))
-    expect(screen.getByText('No device selected')).toBeInTheDocument()
+    expect(screen.getAllByText('No device selected').length).toBeGreaterThanOrEqual(1)
   })
 })
