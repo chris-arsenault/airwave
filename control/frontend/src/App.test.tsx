@@ -37,7 +37,7 @@ vi.mock('framer-motion', () => ({
 describe('App', () => {
   beforeEach(() => {
     useDeviceStore.setState({ devices: [], activeDeviceId: null })
-    usePlayerStore.setState({ playing: false, currentTrack: null })
+    usePlayerStore.setState({ playing: false, currentTrack: null, session: null })
   })
 
   it('renders the app header', () => {
@@ -47,10 +47,12 @@ describe('App', () => {
 
   it('renders bottom navigation', () => {
     renderWithProviders(<App />)
-    expect(screen.getByText('Library')).toBeInTheDocument()
-    expect(screen.getByText('Queue')).toBeInTheDocument()
-    expect(screen.getByText('Rooms')).toBeInTheDocument()
-    expect(screen.getByText('Settings')).toBeInTheDocument()
+    // All tabs are always mounted, so use the nav element to scope
+    const nav = screen.getByRole('navigation')
+    expect(nav).toHaveTextContent('Library')
+    expect(nav).toHaveTextContent('Queue')
+    expect(nav).toHaveTextContent('Rooms')
+    expect(nav).toHaveTextContent('Settings')
   })
 
   it('shows Library tab by default', async () => {
@@ -63,7 +65,7 @@ describe('App', () => {
 
   it('navigates to Queue tab', async () => {
     renderWithProviders(<App />)
-    fireEvent.click(screen.getByText('Queue'))
+    fireEvent.click(screen.getAllByText('Queue')[0])
     await waitFor(() => {
       expect(screen.getAllByText('No device selected').length).toBeGreaterThanOrEqual(1)
     })
@@ -71,13 +73,13 @@ describe('App', () => {
 
   it('navigates to Rooms tab', () => {
     renderWithProviders(<App />)
-    fireEvent.click(screen.getByText('Rooms'))
+    fireEvent.click(screen.getAllByText('Rooms')[0])
     expect(screen.getByText('Discovering devices...')).toBeInTheDocument()
   })
 
   it('navigates to Settings tab', () => {
     renderWithProviders(<App />)
-    fireEvent.click(screen.getByText('Settings'))
+    fireEvent.click(screen.getAllByText('Settings')[0])
     expect(screen.getAllByText('No device selected').length).toBeGreaterThanOrEqual(1)
   })
 })

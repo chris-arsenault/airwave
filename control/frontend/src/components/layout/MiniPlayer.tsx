@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function MiniPlayer({ onExpand }: Props) {
-  const { playing, currentTrack, elapsedSeconds, durationSeconds } = usePlayerStore()
+  const { playing, currentTrack, elapsedSeconds, durationSeconds, session } = usePlayerStore()
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
   const activeDevice = useDeviceStore((s) => s.devices.find((d) => d.id === s.activeDeviceId))
 
@@ -22,6 +22,26 @@ export function MiniPlayer({ onExpand }: Props) {
       await api.pause(activeDeviceId)
     } else {
       await api.resume(activeDeviceId)
+    }
+  }
+
+  const handlePrev = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!activeDeviceId) return
+    if (session) {
+      await api.sessionPrev(activeDeviceId)
+    } else {
+      await api.prev(activeDeviceId)
+    }
+  }
+
+  const handleNext = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!activeDeviceId) return
+    if (session) {
+      await api.sessionNext(activeDeviceId)
+    } else {
+      await api.next(activeDeviceId)
     }
   }
 
@@ -52,7 +72,7 @@ export function MiniPlayer({ onExpand }: Props) {
         )}
       </div>
 
-      <div className="flex items-center gap-3 px-4 py-2">
+      <div className="flex items-center gap-2 px-3 py-2">
         {/* Album art / idle icon */}
         <MiniArt trackId={hasTrack ? currentTrack.id : null} fallbackChar={hasTrack ? (currentTrack.title?.[0] ?? '?') : '\u266A'} />
 
@@ -87,17 +107,29 @@ export function MiniPlayer({ onExpand }: Props) {
             value={Math.round((activeDevice.volume ?? 0) * 100)}
             onChange={handleVolumeChange}
             onClick={(e) => e.stopPropagation()}
-            className="w-16 h-1 accent-[var(--color-accent)] bg-white/10 rounded-full appearance-none cursor-pointer shrink-0"
+            className="w-14 h-1 accent-[var(--color-accent)] bg-white/10 rounded-full appearance-none cursor-pointer shrink-0"
             title={`Volume: ${Math.round((activeDevice.volume ?? 0) * 100)}%`}
           />
         )}
 
-        {/* Play/Pause */}
+        {/* Transport: Prev / Play-Pause / Next */}
+        <button
+          onClick={handlePrev}
+          className="w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] shrink-0"
+        >
+          <PrevIcon />
+        </button>
         <button
           onClick={handlePlayPause}
-          className="w-10 h-10 flex items-center justify-center text-[var(--color-text-primary)]"
+          className="w-9 h-9 flex items-center justify-center text-[var(--color-text-primary)] shrink-0"
         >
           {playing ? <PauseIcon /> : <PlayIcon />}
+        </button>
+        <button
+          onClick={handleNext}
+          className="w-8 h-8 flex items-center justify-center text-[var(--color-text-secondary)] shrink-0"
+        >
+          <NextIcon />
         </button>
       </div>
     </div>
@@ -126,7 +158,7 @@ function MiniArt({ trackId, fallbackChar }: { trackId: string | null; fallbackCh
 
 function PlayIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <polygon points="5,3 19,12 5,21" />
     </svg>
   )
@@ -134,9 +166,27 @@ function PlayIcon() {
 
 function PauseIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <rect x="6" y="4" width="4" height="16" />
       <rect x="14" y="4" width="4" height="16" />
+    </svg>
+  )
+}
+
+function PrevIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="19,20 9,12 19,4" />
+      <rect x="5" y="4" width="2" height="16" />
+    </svg>
+  )
+}
+
+function NextIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="5,4 15,12 5,20" />
+      <rect x="17" y="4" width="2" height="16" />
     </svg>
   )
 }

@@ -96,6 +96,24 @@ pub struct PlaybackStateResponse {
     pub repeat_mode: String,
     pub elapsed_seconds: f64,
     pub duration_seconds: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session: Option<SessionInfoResponse>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionInfoResponse {
+    pub source_id: String,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artist: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub album: Option<String>,
+    pub shuffle_mode: String,
+    pub repeat_mode: String,
+    pub total_tracks: usize,
+    pub position: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -141,6 +159,12 @@ pub struct QueueAddRequest {
 
 fn default_position() -> String {
     "end".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SessionPlayRequest {
+    pub source_id: String,
+    pub start_track_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

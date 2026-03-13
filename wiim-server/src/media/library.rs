@@ -164,6 +164,14 @@ impl Library {
     pub fn system_update_id(&self) -> u32 {
         self.total_tracks
     }
+
+    /// Test-only: inject objects directly for unit testing.
+    #[cfg(test)]
+    pub fn inject_objects_for_test(&mut self, objects: BTreeMap<ObjectId, LibraryObject>) {
+        for (id, obj) in objects {
+            self.objects.insert(id, obj);
+        }
+    }
 }
 
 pub type SharedLibrary = Arc<RwLock<Library>>;

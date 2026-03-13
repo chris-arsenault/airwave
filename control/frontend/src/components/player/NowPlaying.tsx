@@ -4,22 +4,19 @@ import { api } from '../../api/client'
 import { usePlayerStore } from '../../stores/playerStore'
 import { useDeviceStore } from '../../stores/deviceStore'
 
-const SHUFFLE_MODES = ['off', 'shuffle_all', 'shuffle_songs', 'shuffle_categories', 'shuffle_songs_and_categories'] as const
+const SHUFFLE_MODES = ['off', 'tracks', 'groups', 'both'] as const
 const SHUFFLE_LABELS: Record<string, string> = {
   off: 'Off',
-  shuffle_all: 'All',
-  shuffle_songs: 'Songs',
-  shuffle_categories: 'Albums',
-  shuffle_songs_and_categories: 'All+Albums',
+  tracks: 'Songs',
+  groups: 'Albums',
+  both: 'All',
 }
 
-const REPEAT_MODES = ['off', 'track', 'category', 'all', 'advance'] as const
+const REPEAT_MODES = ['off', 'all', 'track'] as const
 const REPEAT_LABELS: Record<string, string> = {
   off: 'Off',
-  track: '1',
-  category: 'Album',
   all: 'All',
-  advance: '→',
+  track: '1',
 }
 
 interface Props {
@@ -28,7 +25,7 @@ interface Props {
 }
 
 export function NowPlaying({ open, onClose }: Props) {
-  const { playing, currentTrack, elapsedSeconds, durationSeconds, shuffleMode, repeatMode } = usePlayerStore()
+  const { playing, currentTrack, elapsedSeconds, durationSeconds, shuffleMode, repeatMode, session } = usePlayerStore()
   const { setPlaying, setShuffleMode, setRepeatMode } = usePlayerStore()
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
   const activeDevice = useDeviceStore((s) => s.devices.find((d) => d.id === s.activeDeviceId))
@@ -46,13 +43,21 @@ export function NowPlaying({ open, onClose }: Props) {
 
   const handleNext = useCallback(async () => {
     if (!activeDeviceId) return
-    await api.next(activeDeviceId)
-  }, [activeDeviceId])
+    if (session) {
+      await api.sessionNext(activeDeviceId)
+    } else {
+      await api.next(activeDeviceId)
+    }
+  }, [activeDeviceId, session])
 
   const handlePrev = useCallback(async () => {
     if (!activeDeviceId) return
-    await api.prev(activeDeviceId)
-  }, [activeDeviceId])
+    if (session) {
+      await api.sessionPrev(activeDeviceId)
+    } else {
+      await api.prev(activeDeviceId)
+    }
+  }, [activeDeviceId, session])
 
   const handleSeek = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!activeDeviceId) return
@@ -70,17 +75,25 @@ export function NowPlaying({ open, onClose }: Props) {
     if (!activeDeviceId) return
     const idx = SHUFFLE_MODES.indexOf(shuffleMode as typeof SHUFFLE_MODES[number])
     const next = SHUFFLE_MODES[(idx + 1) % SHUFFLE_MODES.length]
-    await api.setShuffle(activeDeviceId, next)
+    if (session) {
+      await api.sessionSetShuffle(activeDeviceId, next)
+    } else {
+      await api.setShuffle(activeDeviceId, next)
+    }
     setShuffleMode(next)
-  }, [activeDeviceId, shuffleMode, setShuffleMode])
+  }, [activeDeviceId, shuffleMode, setShuffleMode, session])
 
   const cycleRepeat = useCallback(async () => {
     if (!activeDeviceId) return
     const idx = REPEAT_MODES.indexOf(repeatMode as typeof REPEAT_MODES[number])
     const next = REPEAT_MODES[(idx + 1) % REPEAT_MODES.length]
-    await api.setRepeat(activeDeviceId, next)
+    if (session) {
+      await api.sessionSetRepeat(activeDeviceId, next)
+    } else {
+      await api.setRepeat(activeDeviceId, next)
+    }
     setRepeatMode(next)
-  }, [activeDeviceId, repeatMode, setRepeatMode])
+  }, [activeDeviceId, repeatMode, setRepeatMode, session])
 
   return (
     <AnimatePresence>
@@ -97,8 +110,16 @@ export function NowPlaying({ open, onClose }: Props) {
             <button onClick={onClose} className="p-2 text-[var(--color-text-secondary)]">
               <ChevronDownIcon />
             </button>
-            <div className="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider">
-              {activeDevice?.name ?? 'No device'}
+            <div className="text-center">
+              <div className="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider">
+                {activeDevice?.name ?? 'No device'}
+              </div>
+              {session && (
+                <div className="text-[10px] text-[var(--color-text-secondary)]/60 truncate max-w-[200px]">
+                  {session.label}
+                  {session.total_tracks > 0 && ` \u2022 ${session.position + 1}/${session.total_tracks}`}
+                </div>
+              )}
             </div>
             <div className="w-10" /> {/* spacer */}
           </div>

@@ -45,6 +45,18 @@ export const api = {
   setRepeat: (targetId: string, mode: string) =>
     request(`/playback/${targetId}/repeat`, { method: 'POST', body: JSON.stringify({ mode }) }),
 
+  // Session-based playback
+  sessionPlay: (targetId: string, body: SessionPlayRequest) =>
+    request(`/playback/${targetId}/session/play`, { method: 'POST', body: JSON.stringify(body) }),
+  sessionNext: (targetId: string) =>
+    request(`/playback/${targetId}/session/next`, { method: 'POST' }),
+  sessionPrev: (targetId: string) =>
+    request(`/playback/${targetId}/session/prev`, { method: 'POST' }),
+  sessionSetShuffle: (targetId: string, mode: string) =>
+    request(`/playback/${targetId}/session/shuffle`, { method: 'POST', body: JSON.stringify({ mode }) }),
+  sessionSetRepeat: (targetId: string, mode: string) =>
+    request(`/playback/${targetId}/session/repeat`, { method: 'POST', body: JSON.stringify({ mode }) }),
+
   // Queue
   getQueue: (targetId: string) => request<QueueState>(`/playback/${targetId}/queue`),
   addToQueue: (targetId: string, trackIds: string[], position = 'end') =>
@@ -140,6 +152,18 @@ export interface QueueTrack {
   stream_url: string | null
 }
 
+export interface SessionInfo {
+  source_id: string
+  label: string
+  class?: string
+  artist?: string
+  album?: string
+  shuffle_mode: string
+  repeat_mode: string
+  total_tracks: number
+  position: number
+}
+
 export interface PlaybackState {
   target_id: string
   playing: boolean
@@ -150,6 +174,7 @@ export interface PlaybackState {
   repeat_mode: string
   elapsed_seconds: number
   duration_seconds: number
+  session?: SessionInfo | null
 }
 
 export interface QueueState {
@@ -162,6 +187,11 @@ export interface PlayRequest {
   track_ids?: string[]
   container_id?: string
   start_index?: number
+}
+
+export interface SessionPlayRequest {
+  source_id: string
+  start_track_id?: string
 }
 
 export interface Playlist {

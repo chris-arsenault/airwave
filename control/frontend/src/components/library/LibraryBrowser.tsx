@@ -125,7 +125,7 @@ export function LibraryBrowser() {
       ) : currentId === '0' && !searching ? (
         <CategoryGrid items={items} onSelect={navigateTo} />
       ) : (
-        <ItemList items={items} onSelect={navigateTo} />
+        <ItemList items={items} onSelect={navigateTo} containerId={currentId} />
       )}
     </div>
   )
@@ -140,7 +140,7 @@ function ContainerHeader({ info }: { info: ContainerInfo }) {
 
   const handleQueueAll = async () => {
     if (!activeDeviceId) return
-    await api.play(activeDeviceId, { container_id: info.id })
+    await api.sessionPlay(activeDeviceId, { source_id: info.id })
     setPlaying(true)
   }
 
@@ -195,15 +195,15 @@ function CategoryGrid({ items, onSelect }: { items: LibraryItem[]; onSelect: (it
   )
 }
 
-function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: LibraryItem) => void }) {
+function ItemList({ items, onSelect, containerId }: { items: LibraryItem[]; onSelect: (item: LibraryItem) => void; containerId: string }) {
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
   const setPlaying = usePlayerStore((s) => s.setPlaying)
 
   const handleTrackPlay = async (item: LibraryItem) => {
     if (!activeDeviceId) return
-    // Play only this single track
-    await api.play(activeDeviceId, { track_id: item.id })
+    // Play in context of the current container, starting at this track.
+    await api.sessionPlay(activeDeviceId, { source_id: containerId, start_track_id: item.id })
     setCurrentTrack({
       id: item.id,
       title: item.title ?? 'Unknown',
@@ -222,7 +222,7 @@ function ItemList({ items, onSelect }: { items: LibraryItem[]; onSelect: (item: 
 
   const handlePlayContainer = async (item: LibraryItem) => {
     if (!activeDeviceId) return
-    await api.play(activeDeviceId, { container_id: item.id })
+    await api.sessionPlay(activeDeviceId, { source_id: item.id })
     setPlaying(true)
   }
 

@@ -103,6 +103,7 @@ async fn main() {
         playlist_db.to_str().unwrap_or("playlists.db"),
     ));
     let queue_manager = Arc::new(control::queue::QueueManager::new());
+    let session_manager = Arc::new(control::session::SessionManager::new());
     let art_cache = Arc::new(media::art::ArtCache::new(data_dir));
 
     let control_state = control::state::ControlState {
@@ -111,6 +112,7 @@ async fn main() {
         events: event_bus.clone(),
         playlists: playlist_store,
         queues: queue_manager.clone(),
+        sessions: session_manager.clone(),
         art_cache,
         base_url: cfg.base_url(),
     };
@@ -141,6 +143,27 @@ async fn main() {
             post(control::playback::set_shuffle),
         )
         .route("/playback/{id}/repeat", post(control::playback::set_repeat))
+        // Session-based playback
+        .route(
+            "/playback/{id}/session/play",
+            post(control::playback::session_play),
+        )
+        .route(
+            "/playback/{id}/session/next",
+            post(control::playback::session_next),
+        )
+        .route(
+            "/playback/{id}/session/prev",
+            post(control::playback::session_prev),
+        )
+        .route(
+            "/playback/{id}/session/shuffle",
+            post(control::playback::session_set_shuffle),
+        )
+        .route(
+            "/playback/{id}/session/repeat",
+            post(control::playback::session_set_repeat),
+        )
         // Queue (under /playback/{target}/queue)
         .route(
             "/playback/{id}/queue",
@@ -248,16 +271,20 @@ async fn main() {
         Duration::from_secs(30),
     ));
 
-    // Playback monitor (auto-advance queue on track end)
+    // Playback monitor (auto-advance session/queue on track end)
     let mon_devices = device_manager;
     let mon_queues = queue_manager;
+    let mon_sessions = session_manager;
     let mon_events = event_bus;
     let mon_base = cfg.base_url();
+    let mon_library = library.clone();
     tokio::spawn(control::playback_monitor::run_playback_monitor(
         mon_devices,
         mon_queues,
+        mon_sessions,
         mon_events,
         mon_base,
+        mon_library,
     ));
 
     axum::serve(listener, app)

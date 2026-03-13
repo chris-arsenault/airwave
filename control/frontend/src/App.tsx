@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { api } from './api/client'
+import { api, type SessionInfo } from './api/client'
 import { BottomNav } from './components/layout/BottomNav'
 import { MiniPlayer } from './components/layout/MiniPlayer'
 import { NowPlaying } from './components/player/NowPlaying'
@@ -22,6 +22,7 @@ function AppContent() {
   const updateDevice = useDeviceStore((s) => s.updateDevice)
   const setPlaying = usePlayerStore((s) => s.setPlaying)
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
+  const setSession = usePlayerStore((s) => s.setSession)
 
   // Initial device fetch
   useEffect(() => {
@@ -61,6 +62,16 @@ function AppContent() {
       setPlaying(false)
       setCurrentTrack(null)
     },
+    session_started: (data) => {
+      const { session } = data as { device_id: string; session: SessionInfo }
+      setSession(session)
+      setPlaying(true)
+    },
+    session_ended: () => {
+      setSession(null)
+      setPlaying(false)
+      setCurrentTrack(null)
+    },
   })
 
   return (
@@ -70,10 +81,19 @@ function AppContent() {
       </header>
 
       <main className="px-4 py-4">
-        {tab === 'library' && <LibraryBrowser />}
-        {tab === 'queue' && <QueueView />}
-        {tab === 'devices' && <DeviceManager />}
-        {tab === 'settings' && <EQSettings />}
+        {/* Keep all tabs mounted for state persistence */}
+        <div className={tab === 'library' ? '' : 'hidden'}>
+          <LibraryBrowser />
+        </div>
+        <div className={tab === 'queue' ? '' : 'hidden'}>
+          <QueueView />
+        </div>
+        <div className={tab === 'devices' ? '' : 'hidden'}>
+          <DeviceManager />
+        </div>
+        <div className={tab === 'settings' ? '' : 'hidden'}>
+          <EQSettings />
+        </div>
       </main>
 
       <MiniPlayer onExpand={() => setPlayerExpanded(true)} />

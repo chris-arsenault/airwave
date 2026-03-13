@@ -6,8 +6,9 @@ use crate::media::library::LibraryObject;
 
 use super::models::{
     PlayRequest, PlaybackStateResponse, QueueAddRequest, QueueStateResponse, QueueTrackResponse,
-    RepeatModeRequest, SeekRequest, ShuffleModeRequest,
+    RepeatModeRequest, SeekRequest, SessionInfoResponse, SessionPlayRequest, ShuffleModeRequest,
 };
+use super::session::{PlaySession, RepeatMode, ShuffleMode};
 use super::state::ControlState;
 
 pub async fn get_state(
@@ -39,19 +40,69 @@ pub async fn get_state(
         (false, 0.0, 0.0)
     };
 
-    let queue = state.queues.get_or_create(&target);
-    let q = queue.read();
+    // Check for active session first, fall back to queue.
+    let session_lock = state.sessions.get_or_create(&target);
+    let session_guard = session_lock.read();
+    let (current_track, position, queue_length, shuffle_mode, repeat_mode, session_info) =
+        if let Some(ref session) = *session_guard {
+            let track = session.current_track_id().and_then(|tid| {
+                let library = state.library.read();
+                if let Some(LibraryObject::Track(t)) = library.get(tid) {
+                    Some(QueueTrackResponse {
+                        id: t.id.clone(),
+                        title: t.meta.title.clone(),
+                        artist: Some(t.meta.artist.clone()),
+                        album: Some(t.meta.album.clone()),
+                        duration: t
+                            .meta
+                            .duration
+                            .map(|d| format_duration(d.as_secs_f64())),
+                        stream_url: Some(format!("{}/media/{}", state.base_url, t.id)),
+                    })
+                } else {
+                    None
+                }
+            });
+            let info = session_to_info(session);
+            (
+                track,
+                session.flat_position(),
+                session.total_tracks(),
+                serde_json::to_value(session.shuffle_mode)
+                    .ok()
+                    .and_then(|v| v.as_str().map(|s| s.to_string()))
+                    .unwrap_or_else(|| "off".to_string()),
+                serde_json::to_value(session.repeat_mode)
+                    .ok()
+                    .and_then(|v| v.as_str().map(|s| s.to_string()))
+                    .unwrap_or_else(|| "off".to_string()),
+                Some(info),
+            )
+        } else {
+            let queue = state.queues.get_or_create(&target);
+            let q = queue.read();
+            (
+                q.current().cloned(),
+                q.position(),
+                q.tracks().len(),
+                q.shuffle_mode().to_string(),
+                q.repeat_mode().to_string(),
+                None,
+            )
+        };
+    drop(session_guard);
 
     Ok(Json(PlaybackStateResponse {
         target_id: target,
         playing,
-        current_track: q.current().cloned(),
-        position: q.position(),
-        queue_length: q.tracks().len(),
-        shuffle_mode: q.shuffle_mode().to_string(),
-        repeat_mode: q.repeat_mode().to_string(),
+        current_track,
+        position,
+        queue_length,
+        shuffle_mode,
+        repeat_mode,
         elapsed_seconds: elapsed,
         duration_seconds: duration,
+        session: session_info,
     }))
 }
 
@@ -359,4 +410,235 @@ fn format_duration(seconds: f64) -> String {
     let m = (total % 3600) / 60;
     let s = total % 60;
     format!("{:02}:{:02}:{:02}", h, m, s)
+}
+
+fn session_to_info(session: &PlaySession) -> SessionInfoResponse {
+    SessionInfoResponse {
+        source_id: session.source.id.clone(),
+        label: session.source.label.clone(),
+        class: session.source.class.clone(),
+        artist: session.source.artist.clone(),
+        album: session.source.album.clone(),
+        shuffle_mode: serde_json::to_value(session.shuffle_mode)
+            .ok()
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| "off".to_string()),
+        repeat_mode: serde_json::to_value(session.repeat_mode)
+            .ok()
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| "off".to_string()),
+        total_tracks: session.total_tracks(),
+        position: session.flat_position(),
+    }
+}
+
+// === Session-based playback endpoints ===
+
+pub async fn session_play(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+    Json(body): Json<SessionPlayRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+
+    let session = {
+        let library = state.library.read();
+        PlaySession::new(
+            &body.source_id,
+            body.start_track_id.as_deref(),
+            &library,
+        )
+    };
+
+    let session = session.ok_or(StatusCode::BAD_REQUEST)?;
+
+    let track_id = session
+        .current_track_id()
+        .map(|s| s.to_string())
+        .ok_or(StatusCode::BAD_REQUEST)?;
+
+    let stream_url = {
+        let library = state.library.read();
+        match library.get(&track_id) {
+            Some(LibraryObject::Track(t)) => {
+                format!("{}/media/{}", state.base_url, t.id)
+            }
+            _ => return Err(StatusCode::BAD_REQUEST),
+        }
+    };
+
+    let info = session_to_info(&session);
+
+    // Store session, clear queue for this device (mutual exclusion).
+    {
+        let lock = state.sessions.get_or_create(&target);
+        *lock.write() = Some(session);
+    }
+    {
+        let queue = state.queues.get_or_create(&target);
+        queue.write().clear();
+    }
+
+    // Start playback on device.
+    device
+        .av_transport
+        .set_av_transport_uri(&stream_url, "")
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    device
+        .av_transport
+        .play()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+    state.events.publish(
+        "session_started",
+        &serde_json::json!({
+            "device_id": target,
+            "session": info,
+            "track": { "id": track_id }
+        }),
+    );
+
+    Ok(StatusCode::OK)
+}
+
+pub async fn session_next(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+
+    let next_track_id = {
+        let lock = state.sessions.get_or_create(&target);
+        let mut guard = lock.write();
+        match guard.as_mut() {
+            Some(session) => session.advance(),
+            None => return Err(StatusCode::NOT_FOUND),
+        }
+    };
+
+    match next_track_id {
+        Some(track_id) => {
+            let stream_url = {
+                let library = state.library.read();
+                match library.get(&track_id) {
+                    Some(LibraryObject::Track(t)) => {
+                        format!("{}/media/{}", state.base_url, t.id)
+                    }
+                    _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+                }
+            };
+
+            device
+                .av_transport
+                .set_av_transport_uri(&stream_url, "")
+                .await
+                .map_err(|_| StatusCode::BAD_GATEWAY)?;
+            device
+                .av_transport
+                .play()
+                .await
+                .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+            state.events.publish(
+                "track_changed",
+                &serde_json::json!({
+                    "device_id": target,
+                    "track": { "id": track_id }
+                }),
+            );
+            Ok(StatusCode::OK)
+        }
+        None => {
+            state.events.publish(
+                "session_ended",
+                &serde_json::json!({ "device_id": target }),
+            );
+            Ok(StatusCode::OK)
+        }
+    }
+}
+
+pub async fn session_prev(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let device = state.devices.get(&target).ok_or(StatusCode::NOT_FOUND)?;
+
+    let prev_track_id = {
+        let lock = state.sessions.get_or_create(&target);
+        let mut guard = lock.write();
+        match guard.as_mut() {
+            Some(session) => session.go_back(),
+            None => return Err(StatusCode::NOT_FOUND),
+        }
+    };
+
+    if let Some(track_id) = prev_track_id {
+        let stream_url = {
+            let library = state.library.read();
+            match library.get(&track_id) {
+                Some(LibraryObject::Track(t)) => format!("{}/media/{}", state.base_url, t.id),
+                _ => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+            }
+        };
+
+        device
+            .av_transport
+            .set_av_transport_uri(&stream_url, "")
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?;
+        device
+            .av_transport
+            .play()
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+        state.events.publish(
+            "track_changed",
+            &serde_json::json!({
+                "device_id": target,
+                "track": { "id": track_id }
+            }),
+        );
+    }
+
+    Ok(StatusCode::OK)
+}
+
+pub async fn session_set_shuffle(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+    Json(body): Json<ShuffleModeRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let mode: ShuffleMode =
+        serde_json::from_value(serde_json::Value::String(body.mode)).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let lock = state.sessions.get_or_create(&target);
+    let mut guard = lock.write();
+    match guard.as_mut() {
+        Some(session) => {
+            session.set_shuffle(mode);
+            Ok(StatusCode::OK)
+        }
+        None => Err(StatusCode::NOT_FOUND),
+    }
+}
+
+pub async fn session_set_repeat(
+    State(state): State<ControlState>,
+    Path(target): Path<String>,
+    Json(body): Json<RepeatModeRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let mode: RepeatMode =
+        serde_json::from_value(serde_json::Value::String(body.mode)).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let lock = state.sessions.get_or_create(&target);
+    let mut guard = lock.write();
+    match guard.as_mut() {
+        Some(session) => {
+            session.set_repeat(mode);
+            Ok(StatusCode::OK)
+        }
+        None => Err(StatusCode::NOT_FOUND),
+    }
 }
