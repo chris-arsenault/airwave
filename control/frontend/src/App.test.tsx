@@ -21,9 +21,9 @@ vi.mock('./hooks/useSSE', () => ({
   useSSE: vi.fn(),
 }))
 
-// Mock playback polling
-vi.mock('./hooks/usePlaybackPolling', () => ({
-  usePlaybackPolling: vi.fn(),
+// Mock art color hook
+vi.mock('./hooks/useArtColor', () => ({
+  useArtColor: () => ({ dominant: '#6366f1', muted: '#2d2b55' }),
 }))
 
 // Mock framer-motion to avoid animation issues in tests
@@ -52,7 +52,7 @@ describe('App', () => {
     expect(nav).toHaveTextContent('Library')
     expect(nav).toHaveTextContent('Queue')
     expect(nav).toHaveTextContent('Rooms')
-    expect(nav).toHaveTextContent('Settings')
+    expect(nav).toHaveTextContent('EQ')
   })
 
   it('shows Library tab by default', async () => {
@@ -77,9 +77,9 @@ describe('App', () => {
     expect(screen.getByText('Discovering devices...')).toBeInTheDocument()
   })
 
-  it('navigates to Settings tab', () => {
+  it('navigates to EQ tab', () => {
     renderWithProviders(<App />)
-    fireEvent.click(screen.getAllByText('Settings')[0])
+    fireEvent.click(screen.getAllByText('EQ')[0])
     expect(screen.getAllByText('No device selected').length).toBeGreaterThanOrEqual(1)
   })
 })

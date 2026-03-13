@@ -19,3 +19,125 @@ body {
   overscroll-behavior: none;
   user-select: none;
 }
+
+/* Mobile: stacked layout with bottom nav + mini player */
+.app-layout {
+  min-height: 100vh;
+  padding-bottom: 120px; /* room for mini-player + bottom nav */
+}
+.app-sidebar {
+  display: none;
+}
+.app-nowplaying {
+  display: none;
+}
+.mini-player {
+  position: fixed;
+  bottom: 56px; /* above bottom nav */
+  left: 0;
+  right: 0;
+  z-index: 40;
+}
+
+/* Desktop three-panel layout */
+@media (min-width: 768px) {
+  .app-layout {
+    display: grid;
+    grid-template-columns: 64px 1fr 360px;
+    grid-template-rows: 1fr;
+    height: 100vh;
+    overflow: hidden;
+    min-height: 0;
+    padding-bottom: 0;
+  }
+  .app-layout.np-collapsed {
+    grid-template-columns: 64px 1fr;
+  }
+  .app-sidebar {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .app-main {
+    grid-column: 2;
+    grid-row: 1;
+    overflow-y: auto;
+  }
+  .app-nowplaying {
+    grid-column: 3;
+    grid-row: 1;
+    overflow-y: auto;
+  }
+  .app-layout.np-collapsed .app-nowplaying {
+    display: none;
+  }
+  .mini-player {
+    display: none;
+  }
+}
+
+/* Custom range slider styling */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  margin-top: -5px;
+  border: none;
+}
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: none;
+}
+
+/* Seek bar: wider thumb for touch */
+.seek-bar::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+}
+.seek-bar::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+}
+
+/* Scrollbar styling for desktop */
+@media (min-width: 768px) {
+  .app-main::-webkit-scrollbar,
+  .app-nowplaying::-webkit-scrollbar {
+    width: 6px;
+  }
+  .app-main::-webkit-scrollbar-track,
+  .app-nowplaying::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .app-main::-webkit-scrollbar-thumb,
+  .app-nowplaying::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+  }
+  .app-main::-webkit-scrollbar-thumb:hover,
+  .app-nowplaying::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+}

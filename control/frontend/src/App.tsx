@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { api, type SessionInfo } from './api/client'
 import { BottomNav } from './components/layout/BottomNav'
+import { Sidebar } from './components/layout/Sidebar'
+import { DevicePill } from './components/layout/DevicePill'
 import { MiniPlayer } from './components/layout/MiniPlayer'
 import { NowPlaying } from './components/player/NowPlaying'
 import { LibraryBrowser } from './components/library/LibraryBrowser'
@@ -22,6 +24,7 @@ function AppContent() {
   const setPlaying = usePlayerStore((s) => s.setPlaying)
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack)
   const setSession = usePlayerStore((s) => s.setSession)
+  const hasTrack = usePlayerStore((s) => !!s.currentTrack)
 
   // Initial device fetch
   useEffect(() => {
@@ -95,29 +98,40 @@ function AppContent() {
   })
 
   return (
-    <div className="min-h-screen pb-[120px]">
-      <header className="sticky top-0 bg-[var(--color-surface)]/95 backdrop-blur-sm border-b border-white/5 px-4 py-3 z-30">
-        <h1 className="text-lg font-semibold">WiiM Control</h1>
-      </header>
+    <div className={`app-layout ${!hasTrack ? 'np-collapsed' : ''}`}>
+      {/* Desktop sidebar */}
+      <Sidebar active={tab} onNavigate={setTab} />
 
-      <main className="px-4 py-4">
-        {/* Keep all tabs mounted for state persistence */}
-        <div className={tab === 'library' ? '' : 'hidden'}>
-          <LibraryBrowser />
-        </div>
-        <div className={tab === 'queue' ? '' : 'hidden'}>
-          <QueueView />
-        </div>
-        <div className={tab === 'devices' ? '' : 'hidden'}>
-          <DeviceManager />
-        </div>
-        <div className={tab === 'settings' ? '' : 'hidden'}>
-          <EQSettings />
-        </div>
-      </main>
+      {/* Main content area */}
+      <div className="app-main">
+        {/* Mobile header */}
+        <header className="sticky top-0 bg-[var(--color-surface)]/95 backdrop-blur-sm border-b border-white/5 px-4 py-3 z-30 flex items-center justify-between">
+          <h1 className="text-lg font-semibold">WiiM Control</h1>
+          <DevicePill />
+        </header>
 
-      <MiniPlayer onExpand={() => setPlayerExpanded(true)} />
+        <main className="px-4 py-4">
+          {/* Keep all tabs mounted for state persistence */}
+          <div className={tab === 'library' ? '' : 'hidden'}>
+            <LibraryBrowser />
+          </div>
+          <div className={tab === 'queue' ? '' : 'hidden'}>
+            <QueueView />
+          </div>
+          <div className={tab === 'devices' ? '' : 'hidden'}>
+            <DeviceManager />
+          </div>
+          <div className={tab === 'settings' ? '' : 'hidden'}>
+            <EQSettings />
+          </div>
+        </main>
+      </div>
+
+      {/* Now Playing — desktop right panel + mobile bottom sheet */}
       <NowPlaying open={playerExpanded} onClose={() => setPlayerExpanded(false)} />
+
+      {/* Mobile: mini player + bottom nav */}
+      <MiniPlayer onExpand={() => setPlayerExpanded(true)} />
       <BottomNav active={tab} onNavigate={setTab} />
     </div>
   )

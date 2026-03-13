@@ -10,7 +10,7 @@ const items: NavItem[] = [
   { id: 'library', label: 'Library', icon: <LibraryIcon /> },
   { id: 'queue', label: 'Queue', icon: <QueueIcon /> },
   { id: 'devices', label: 'Rooms', icon: <DevicesIcon /> },
-  { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
+  { id: 'settings', label: 'EQ', icon: <SettingsIcon /> },
 ]
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
 
 export function BottomNav({ active, onNavigate }: Props) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface-elevated)] border-t border-white/10 flex justify-around py-2 px-4 z-50 safe-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface-elevated)] border-t border-white/10 flex justify-around py-2 px-4 z-50 safe-bottom md:hidden">
       {items.map((item) => (
         <button
           key={item.id}

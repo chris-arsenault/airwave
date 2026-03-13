@@ -8,7 +8,7 @@ describe('BottomNav', () => {
     expect(screen.getByText('Library')).toBeInTheDocument()
     expect(screen.getByText('Queue')).toBeInTheDocument()
     expect(screen.getByText('Rooms')).toBeInTheDocument()
-    expect(screen.getByText('Settings')).toBeInTheDocument()
+    expect(screen.getByText('EQ')).toBeInTheDocument()
   })
 
   it('calls onNavigate with tab id on click', () => {
