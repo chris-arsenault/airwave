@@ -34,7 +34,7 @@ pub struct ServerConfig {
 }
 
 fn default_port() -> u16 {
-    9000
+    7882
 }
 
 fn default_music_dirs() -> Vec<PathBuf> {

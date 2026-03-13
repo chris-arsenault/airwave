@@ -16,10 +16,10 @@ services:
     network_mode: host
     restart: unless-stopped
     environment:
-      - DLNA_BASE_URL=http://localhost:9000
+      - DLNA_BASE_URL=http://localhost:7882
       - DATABASE_PATH=/data/wiim-control.db
       - HOST=0.0.0.0
-      - PORT=8000
+      - PORT=7881
     volumes:
       - wiim-control-data:/data
     depends_on:
@@ -28,8 +28,7 @@ services:
   frontend:
     build: ./control/frontend
     container_name: wiim-control-frontend
-    ports:
-      - "3000:80"
+    network_mode: host
     restart: unless-stopped
     depends_on:
       - backend

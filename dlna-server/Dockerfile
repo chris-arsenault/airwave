@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=builder /build/target/release/wiim-dlna /usr/local/bin/wiim-dlna
 COPY config.toml /etc/wiim-dlna/config.toml
 
-EXPOSE 9000
+EXPOSE 7882
 EXPOSE 1900/udp
 
 ENTRYPOINT ["wiim-dlna", "/etc/wiim-dlna/config.toml"]

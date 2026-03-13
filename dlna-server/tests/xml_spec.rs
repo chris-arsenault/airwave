@@ -40,7 +40,7 @@ mod device_description {
         wiim_dlna::upnp::xml::device_description(
             "test-uuid-1234",
             "Test Server",
-            "http://192.168.1.1:9000",
+            "http://192.168.1.1:7882",
         )
     }
 
@@ -134,7 +134,7 @@ mod device_description {
     fn has_url_base() {
         let s = xml();
         let doc = parse_xml(&s);
-        assert_eq!(element_text(&doc, "URLBase"), "http://192.168.1.1:9000");
+        assert_eq!(element_text(&doc, "URLBase"), "http://192.168.1.1:7882");
     }
 
     #[test]
@@ -613,7 +613,7 @@ mod didl_lite {
     #[test]
     fn track_item_has_required_attributes() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -626,7 +626,7 @@ mod didl_lite {
     #[test]
     fn track_has_dc_metadata() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -637,7 +637,7 @@ mod didl_lite {
     #[test]
     fn track_has_upnp_class() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -650,7 +650,7 @@ mod didl_lite {
     #[test]
     fn track_has_res_element_with_protocol_info() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -669,7 +669,7 @@ mod didl_lite {
     #[test]
     fn track_res_has_size() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -680,7 +680,7 @@ mod didl_lite {
     #[test]
     fn track_res_has_duration_in_hhmmss_format() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -693,7 +693,7 @@ mod didl_lite {
     #[test]
     fn track_res_has_audio_properties() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -706,20 +706,20 @@ mod didl_lite {
     #[test]
     fn track_res_url_contains_base_url_and_track_id() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
         let res = find_element(&doc, "res");
         let url = res.text().expect("res should contain URL text");
-        assert!(url.starts_with("http://192.168.1.1:9000/media/"));
+        assert!(url.starts_with("http://192.168.1.1:7882/media/"));
         assert!(url.contains("t1"));
     }
 
     #[test]
     fn track_has_genre_when_present() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -729,7 +729,7 @@ mod didl_lite {
     #[test]
     fn track_has_original_track_number() {
         let mut didl = DidlWriter::new();
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -740,7 +740,7 @@ mod didl_lite {
     fn multiple_items_produce_valid_xml() {
         let mut didl = DidlWriter::new();
         didl.write_container(&sample_container());
-        didl.write_track(&sample_track(), "http://192.168.1.1:9000");
+        didl.write_track(&sample_track(), "http://192.168.1.1:7882");
         let s = didl.finish();
         let doc = parse_xml(&s);
 
@@ -761,7 +761,7 @@ mod ssdp_messages {
     #[test]
     fn notify_alive_has_required_headers() {
         let msg = messages::notify_alive(
-            "http://192.168.1.1:9000/device.xml",
+            "http://192.168.1.1:7882/device.xml",
             "upnp:rootdevice",
             "uuid:test::upnp:rootdevice",
             "Linux/1.0 UPnP/1.0 WiiMDLNA/0.1.0",
@@ -770,7 +770,7 @@ mod ssdp_messages {
         assert!(msg.starts_with("NOTIFY * HTTP/1.1\r\n"));
         assert!(msg.contains("HOST: 239.255.255.250:1900"));
         assert!(msg.contains("CACHE-CONTROL: max-age=1800"));
-        assert!(msg.contains("LOCATION: http://192.168.1.1:9000/device.xml"));
+        assert!(msg.contains("LOCATION: http://192.168.1.1:7882/device.xml"));
         assert!(msg.contains("NT: upnp:rootdevice"));
         assert!(msg.contains("NTS: ssdp:alive"));
         assert!(msg.contains("USN: uuid:test::upnp:rootdevice"));
@@ -789,7 +789,7 @@ mod ssdp_messages {
     #[test]
     fn search_response_has_required_headers() {
         let msg = messages::search_response(
-            "http://192.168.1.1:9000/device.xml",
+            "http://192.168.1.1:7882/device.xml",
             "upnp:rootdevice",
             "uuid:test::upnp:rootdevice",
             "Linux/1.0 UPnP/1.0 WiiMDLNA/0.1.0",
