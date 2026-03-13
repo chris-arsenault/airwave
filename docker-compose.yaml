@@ -7,7 +7,7 @@ services:
     volumes:
       - /mnt/apps/shares/public/Music:/mnt/music:ro
       - ./wiim-server/config.toml:/etc/wiim-server/config.toml:ro
-      - wiim-data:/data
+      - /mnt/apps/apps/wiim-dlna:/data
     environment:
       - RUST_LOG=wiim_server=info
 
@@ -18,6 +18,3 @@ services:
     restart: unless-stopped
     depends_on:
       - wiim-server
-
-volumes:
-  wiim-data:

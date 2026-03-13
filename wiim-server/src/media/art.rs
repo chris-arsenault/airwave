@@ -1,7 +1,7 @@
 use lofty::file::TaggedFileExt;
 use lofty::picture::PictureType;
 use rusqlite::{params, Connection};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Mutex;
 
 /// On-demand album art extractor with SQLite-backed persistent cache.

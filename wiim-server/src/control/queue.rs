@@ -92,6 +92,7 @@ impl PlayQueue {
         self.tracks.get(self.position)
     }
 
+    #[allow(dead_code)]
     pub fn go_back(&mut self) -> Option<&QueueTrackResponse> {
         if self.tracks.is_empty() {
             return None;

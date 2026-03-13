@@ -8,6 +8,7 @@ use super::models::{BrowseResponse, ContainerInfoResponse, LibraryItemResponse};
 use super::state::ControlState;
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct BrowseQuery {
     #[serde(default = "default_id")]
     pub id: String,
@@ -22,6 +23,7 @@ fn default_id() -> String {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct SearchQuery {
     pub q: String,
     #[serde(default)]

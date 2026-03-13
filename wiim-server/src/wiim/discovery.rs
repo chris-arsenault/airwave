@@ -15,8 +15,6 @@ const SSDP_PORT: u16 = 1900;
 const MEDIA_RENDERER_URN: &str = "urn:schemas-upnp-org:device:MediaRenderer:1";
 const UPNP_NS: &str = "urn:schemas-upnp-org:device-1-0";
 
-const AV_TRANSPORT_TYPE: &str = "urn:schemas-upnp-org:service:AVTransport:1";
-const RENDERING_CONTROL_TYPE: &str = "urn:schemas-upnp-org:service:RenderingControl:1";
 const PLAY_QUEUE_TYPE: &str = "urn:schemas-wiimu-com:service:PlayQueue:1";
 
 struct DiscoveredLocation {

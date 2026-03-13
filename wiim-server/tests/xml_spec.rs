@@ -849,6 +849,6 @@ mod library {
     fn children_of_root_has_virtual_containers() {
         let lib = library::Library::new();
         let children = lib.children_of("0");
-        assert_eq!(children.len(), 4);
+        assert_eq!(children.len(), 5);
     }
 }

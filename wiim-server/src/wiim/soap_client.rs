@@ -34,6 +34,7 @@ impl SoapClient {
         Self { http, base_url }
     }
 
+    #[allow(dead_code)]
     pub fn base_url(&self) -> &str {
         &self.base_url
     }

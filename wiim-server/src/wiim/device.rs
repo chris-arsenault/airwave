@@ -36,6 +36,7 @@ pub struct DeviceParams {
 
 /// A discovered UPnP MediaRenderer device with its service clients.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct WiimDevice {
     pub id: String,
     pub name: String,

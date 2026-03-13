@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::{header, StatusCode};
-use axum::response::{IntoResponse, Response};
+use axum::response::Response;
 use tracing::debug;
 
 use crate::media::art::{album_cache_key, extract_art};
