@@ -12,6 +12,7 @@ import { EQSettings } from './components/devices/EQSettings'
 import { useDeviceStore } from './stores/deviceStore'
 import { usePlayerStore } from './stores/playerStore'
 import { useSSE } from './hooks/useSSE'
+import { useMediaSession } from './hooks/useMediaSession'
 
 const queryClient = new QueryClient()
 
@@ -32,6 +33,9 @@ function AppContent() {
   const qc = useQueryClient()
 
   const toggleDrawer = (id: string) => setDrawer((d) => (d === id ? null : id))
+
+  // Media Session API — lock screen controls + hardware volume buttons
+  useMediaSession()
 
   // Initial device fetch
   useEffect(() => {
