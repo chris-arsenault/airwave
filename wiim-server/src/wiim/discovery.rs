@@ -426,6 +426,98 @@ pub async fn run_discovery(
             }
         }
 
+        // Probe slaves that didn't respond to SSDP.
+        // Grouped WiiM slaves stop advertising via multicast, but still respond
+        // to direct HTTP requests. Masters report their slaves in SlaveList.
+        let all_devices = device_manager.list_all();
+        for master in all_devices.iter().filter(|d| d.is_master) {
+            if let Ok(info_ex) = master.av_transport.get_info_ex().await {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&info_ex.slave_list) {
+                    if let Some(slaves) = parsed.get("slave_list").and_then(|v| v.as_array()) {
+                        for slave_val in slaves {
+                            let slave_ip = match slave_val.get("ip").and_then(|v| v.as_str()) {
+                                Some(ip) => ip,
+                                None => continue,
+                            };
+                            // Skip if we already discovered this device via SSDP
+                            if current_ids.iter().any(|id| {
+                                device_manager.get(id).is_some_and(|d| d.ip == slave_ip)
+                            }) {
+                                continue;
+                            }
+                            // Try to fetch description.xml directly from the slave
+                            let location = format!("http://{}:49152/description.xml", slave_ip);
+                            match fetch_device_info(&client, &location).await {
+                                Ok(info) => {
+                                    let id = info.udn.replace("uuid:", "");
+                                    if device_manager.contains(&id) {
+                                        current_ids.insert(id);
+                                        continue;
+                                    }
+                                    info!(
+                                        "Discovered grouped slave {} ({}) at {} via master {}",
+                                        info.friendly_name, id, slave_ip, master.name
+                                    );
+                                    let initial_caps = DeviceCapabilities {
+                                        av_transport: info.service_urls.av_transport.is_some(),
+                                        rendering_control: info.service_urls.rendering_control.is_some(),
+                                        wiim_extended: info.has_play_queue,
+                                        https_api: false,
+                                    };
+                                    let mut device = WiimDevice::new(DeviceParams {
+                                        ip: info.ip,
+                                        port: info.port,
+                                        name: info.friendly_name,
+                                        model: info.model_name,
+                                        firmware: info.model_number,
+                                        udn: info.udn,
+                                        service_urls: info.service_urls,
+                                        capabilities: initial_caps,
+                                    });
+
+                                    let av_ok = probe_av_transport(&device).await;
+                                    let rc_ok = probe_rendering_control(&device).await;
+                                    device.capabilities.av_transport = av_ok;
+                                    device.capabilities.rendering_control = rc_ok;
+
+                                    if rc_ok {
+                                        if let Ok(vol) = device.rendering.get_volume().await {
+                                            device.volume = vol as f64 / 100.0;
+                                        }
+                                        if let Ok(muted) = device.rendering.get_mute().await {
+                                            device.muted = muted;
+                                        }
+                                    }
+
+                                    if device.capabilities.wiim_extended {
+                                        let probe = HttpsApiClient::probe_client(&device.ip);
+                                        let has_https = probe.probe().await;
+                                        device.capabilities.https_api = has_https;
+                                        if has_https {
+                                            device.https_client = Some(HttpsApiClient::new(&device.ip));
+                                        }
+                                    }
+
+                                    // Set group state — we know it's a slave of this master
+                                    device.group_id = Some(master.id.clone());
+
+                                    if let Some(cfg) = persisted.get(&id) {
+                                        device.enabled = cfg.enabled;
+                                    }
+
+                                    current_ids.insert(id.clone());
+                                    device_manager.register(device);
+                                }
+                                Err(e) => {
+                                    debug!("Failed to probe slave at {}: {e}", slave_ip);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Remove devices no longer responding
         for id in known_ids.difference(&current_ids) {
             info!("Device no longer responding: {id}");
