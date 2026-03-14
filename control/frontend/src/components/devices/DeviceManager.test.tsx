@@ -73,7 +73,7 @@ describe('DeviceManager', () => {
       activeDeviceId: 'a',
     })
     render(<DeviceManager />)
-    expect(screen.getByText('Master')).toBeInTheDocument()
+    expect(screen.getByText('M')).toBeInTheDocument()
     expect(screen.getByText('Group')).toBeInTheDocument()
   })
 
