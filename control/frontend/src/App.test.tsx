@@ -13,6 +13,7 @@ vi.mock('./api/client', () => ({
     getQueue: vi.fn(() => Promise.resolve({ tracks: [], position: 0 })),
     pause: vi.fn(() => Promise.resolve()),
     resume: vi.fn(() => Promise.resolve()),
+    getPresets: vi.fn(() => Promise.resolve({ presets: {} })),
   },
 }))
 

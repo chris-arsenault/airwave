@@ -11,6 +11,7 @@ pub mod models;
 pub mod playback;
 pub mod playback_monitor;
 pub mod playlists;
+pub mod presets;
 pub mod queue;
 pub mod session;
 pub mod state;

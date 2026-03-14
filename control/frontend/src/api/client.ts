@@ -95,6 +95,12 @@ export const api = {
   dissolveGroup: (masterId: string) =>
     request(`/groups/${masterId}`, { method: 'DELETE' }),
 
+  // Group presets
+  getPresets: () => request<{ presets: Record<string, GroupDefinition[] | null> }>('/presets'),
+  savePreset: (slot: number) => request('/presets/' + slot, { method: 'POST' }),
+  loadPreset: (slot: number) => request('/presets/' + slot + '/load', { method: 'POST' }),
+  deletePreset: (slot: number) => request('/presets/' + slot, { method: 'DELETE' }),
+
   // Metadata editing
   updateTrack: (trackId: string, update: TagUpdate) =>
     request(`/library/tracks/${trackId}`, { method: 'PATCH', body: JSON.stringify(update) }),
@@ -304,4 +310,9 @@ export interface WifiStatus {
   source: string | null
   rssi: number | null
   ssid: string | null
+}
+
+export interface GroupDefinition {
+  master_id: string
+  slave_ids: string[]
 }

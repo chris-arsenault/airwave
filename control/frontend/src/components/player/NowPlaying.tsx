@@ -122,7 +122,7 @@ export function NowPlaying({ open, onClose }: Props) {
     if (!activeDeviceId || !currentTrack) return
     setRating(stars)
     await api.rateTrack(activeDeviceId, currentTrack.id, stars)
-  }, [activeDeviceId, currentTrack])
+  }, [activeDeviceId, currentTrack, setRating])
 
   const cycleShuffle = useCallback(async () => {
     if (!activeDeviceId) return

@@ -249,6 +249,13 @@ async fn main() {
         // Groups
         .route("/groups", post(control::groups::create_group))
         .route("/groups/{id}", delete(control::groups::dissolve_group))
+        // Group presets
+        .route("/presets", get(control::presets::list_presets))
+        .route(
+            "/presets/{slot}",
+            post(control::presets::save_preset).delete(control::presets::delete_preset),
+        )
+        .route("/presets/{slot}/load", post(control::presets::load_preset))
         // Art
         .route("/art/{id}", get(control::art::get_art))
         // Library

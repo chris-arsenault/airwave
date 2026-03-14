@@ -38,6 +38,14 @@ impl DeviceConfigStore {
              ALTER TABLE device_config ADD COLUMN is_master INTEGER NOT NULL DEFAULT 0;",
         );
 
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS group_presets (
+                slot INTEGER PRIMARY KEY,
+                config TEXT NOT NULL
+            );",
+        )
+        .expect("Failed to initialize group_presets schema");
+
         store
     }
 
@@ -93,6 +101,55 @@ impl DeviceConfigStore {
         conn.execute(
             "UPDATE device_config SET group_id = NULL, is_master = 0 WHERE group_id = ?1",
             params![group_id],
+        )
+        .ok();
+    }
+
+    /// Save (upsert) a group preset into the given slot (1-5).
+    pub fn save_preset(&self, slot: u8, config: &str) {
+        let conn = Connection::open(&self.path).unwrap();
+        conn.execute(
+            "INSERT INTO group_presets (slot, config)
+             VALUES (?1, ?2)
+             ON CONFLICT(slot) DO UPDATE SET config = excluded.config",
+            params![slot as i32, config],
+        )
+        .ok();
+    }
+
+    /// Load a single group preset by slot number.
+    pub fn load_preset(&self, slot: u8) -> Option<String> {
+        let conn = Connection::open(&self.path).unwrap();
+        conn.query_row(
+            "SELECT config FROM group_presets WHERE slot = ?1",
+            params![slot as i32],
+            |row| row.get(0),
+        )
+        .ok()
+    }
+
+    /// Load all group presets, keyed by slot number.
+    pub fn load_all_presets(&self) -> HashMap<u8, String> {
+        let conn = Connection::open(&self.path).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT slot, config FROM group_presets")
+            .unwrap();
+        stmt.query_map([], |row| {
+            let slot: i32 = row.get(0)?;
+            let config: String = row.get(1)?;
+            Ok((slot as u8, config))
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect()
+    }
+
+    /// Delete a group preset from the given slot.
+    pub fn delete_preset(&self, slot: u8) {
+        let conn = Connection::open(&self.path).unwrap();
+        conn.execute(
+            "DELETE FROM group_presets WHERE slot = ?1",
+            params![slot as i32],
         )
         .ok();
     }
