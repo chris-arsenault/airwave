@@ -98,41 +98,47 @@ export function useMediaSession() {
 
     const onVolume = () => handleVolumeChange(audioRef, lastVolumeRef)
 
+    // Create audio element once, reuse across attempts
+    let audio: HTMLAudioElement | null = null
+
     const activate = (e: Event) => {
       if (activatedRef.current) return
-      activatedRef.current = true
-      log(`activate triggered by ${e.type}`)
+      log(`activate attempt via ${e.type}`)
 
       try {
-        const url = createSilentAudio()
-        log(`silent audio blob: ${url.slice(0, 40)}...`)
-        const audio = new Audio(url)
-        audio.loop = true
-        audio.volume = VOLUME_MIDPOINT
-        audioRef.current = audio
-        lastVolumeRef.current = VOLUME_MIDPOINT
+        if (!audio) {
+          const url = createSilentAudio()
+          log(`created silent audio blob`)
+          audio = new Audio(url)
+          audio.loop = true
+          audio.volume = VOLUME_MIDPOINT
+          audioRef.current = audio
+          lastVolumeRef.current = VOLUME_MIDPOINT
 
-        audio.addEventListener('volumechange', onVolume)
-        audio.addEventListener('playing', () => log('audio state: playing'))
-        audio.addEventListener('error', (ev) => {
-          const err = audio.error
-          log(`audio error: code=${err?.code} msg=${err?.message ?? (ev as ErrorEvent).message ?? 'unknown'}`)
-        })
-        audio.addEventListener('suspend', () => log('audio state: suspend'))
-        audio.addEventListener('stalled', () => log('audio state: stalled'))
+          audio.addEventListener('volumechange', onVolume)
+          audio.addEventListener('playing', () => log('audio state: playing'))
+          audio.addEventListener('error', (ev) => {
+            const err = audio?.error
+            log(`audio error: code=${err?.code} msg=${err?.message ?? (ev as ErrorEvent).message ?? 'unknown'}`)
+          })
+        }
 
         const result = audio.play()
         if (result && typeof result.then === 'function') {
-          result.then(() => log('audio.play() resolved')).catch((err: Error) => log(`audio.play() rejected: ${err.message}`))
+          result.then(() => {
+            log('audio.play() resolved — activated!')
+            activatedRef.current = true
+            document.removeEventListener('click', activate)
+            document.removeEventListener('touchstart', activate)
+          }).catch((err: Error) => {
+            log(`audio.play() rejected: ${err.message} — will retry on next gesture`)
+          })
         } else {
           log(`audio.play() returned: ${typeof result}`)
         }
       } catch (err) {
         log(`activate error: ${err}`)
       }
-
-      document.removeEventListener('click', activate)
-      document.removeEventListener('touchstart', activate)
     }
 
     document.addEventListener('click', activate, { once: false })
