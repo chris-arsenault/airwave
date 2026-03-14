@@ -249,6 +249,27 @@ impl HttpsApiClient {
         })
     }
 
+    // ── Volume (avoids SOAP group-sync crosstalk) ──────────────
+
+    pub async fn set_volume(&self, volume: u32) -> Result<(), HttpsApiError> {
+        let text = self.command(&format!("setPlayerCmd:vol:{volume}")).await?;
+        if text.trim() == "OK" {
+            Ok(())
+        } else {
+            Err(HttpsApiError::ApiFailed(text))
+        }
+    }
+
+    pub async fn set_mute(&self, mute: bool) -> Result<(), HttpsApiError> {
+        let val = if mute { "1" } else { "0" };
+        let text = self.command(&format!("setPlayerCmd:mute:{val}")).await?;
+        if text.trim() == "OK" {
+            Ok(())
+        } else {
+            Err(HttpsApiError::ApiFailed(text))
+        }
+    }
+
     // ── Multiroom ──────────────────────────────────────────────
 
     /// Tell this device to join a group as a slave of the given master IP.

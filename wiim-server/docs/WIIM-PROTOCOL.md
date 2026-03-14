@@ -146,6 +146,24 @@ Returns a large JSON object. Key fields:
 | `communication_port` | `8819` (purpose unknown, appears non-responsive) |
 | `security` | `https/2.0` |
 
+## Volume in Groups
+
+**SOAP `SetVolume` on a master device syncs volume to all slaves** (firmware behavior). This causes crosstalk — setting the master's volume drags every slave with it.
+
+The HTTPS API does NOT have this behavior:
+
+| Method | Syncs to group? |
+|--------|----------------|
+| SOAP `SetVolume` on master | **YES** — firmware pushes to all slaves |
+| SOAP `SetVolume` on slave | No — slave changes independently |
+| HTTPS `setPlayerCmd:vol:{N}` on master | No — master only |
+| HTTPS `setPlayerCmd:vol:{N}` on slave | No — slave only |
+| HTTPS `multiroom:SlaveVolume:{ip}:{vol}` | No — sets specific slave only |
+
+Our server uses `setPlayerCmd:vol` (HTTPS) to avoid group crosstalk, falling back to SOAP only for non-WiiM renderers.
+
+The `multiroom:getSlaveList` response includes each slave's current volume and mute state.
+
 ## Known Idiosyncrasies
 
 1. **SOAP multiroom commands are no-ops on WiiM Mini.** `MultiRoomJoinGroup` and `MultiRoomLeaveGroup` return success but have no effect. Always use HTTPS API.

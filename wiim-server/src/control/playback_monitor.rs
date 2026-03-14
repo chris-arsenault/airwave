@@ -38,6 +38,30 @@ pub async fn run_playback_monitor(
                 continue;
             }
 
+            // Poll volume/mute from device — catches changes from WiiM app,
+            // physical buttons, or firmware group-volume sync.
+            if device.capabilities.rendering_control {
+                if let Ok(vol) = device.rendering.get_volume().await {
+                    let new_vol = vol as f64 / 100.0;
+                    if (new_vol - device.volume).abs() > 0.005 {
+                        devices.update(&device.id, |d| d.volume = new_vol);
+                        events.publish(
+                            "volume_changed",
+                            &serde_json::json!({ "device_id": device.id, "volume": new_vol }),
+                        );
+                    }
+                }
+                if let Ok(muted) = device.rendering.get_mute().await {
+                    if muted != device.muted {
+                        devices.update(&device.id, |d| d.muted = muted);
+                        events.publish(
+                            "mute_changed",
+                            &serde_json::json!({ "device_id": device.id, "muted": muted }),
+                        );
+                    }
+                }
+            }
+
             // Skip slaves — only monitor master devices (slaves follow via firmware).
             if device.group_id.is_some() && !device.is_master {
                 continue;

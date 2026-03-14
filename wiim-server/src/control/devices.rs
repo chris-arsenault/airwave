@@ -69,11 +69,19 @@ pub async fn set_volume(
 ) -> Result<StatusCode, StatusCode> {
     let device = state.devices.get(&id).ok_or(StatusCode::NOT_FOUND)?;
     let vol = (body.volume * 100.0).round() as u32;
-    device
-        .rendering
-        .set_volume(vol)
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    // Prefer HTTPS API — SOAP SetVolume on a master syncs to all slaves (firmware behavior)
+    if let Some(ref https) = device.https_client {
+        https
+            .set_volume(vol)
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    } else {
+        device
+            .rendering
+            .set_volume(vol)
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    }
     state.devices.update(&id, |d| d.volume = body.volume);
     state.events.publish(
         "volume_changed",
@@ -88,11 +96,18 @@ pub async fn toggle_mute(
 ) -> Result<StatusCode, StatusCode> {
     let device = state.devices.get(&id).ok_or(StatusCode::NOT_FOUND)?;
     let new_mute = !device.muted;
-    device
-        .rendering
-        .set_mute(new_mute)
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    if let Some(ref https) = device.https_client {
+        https
+            .set_mute(new_mute)
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    } else {
+        device
+            .rendering
+            .set_mute(new_mute)
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    }
     state.devices.update(&id, |d| d.muted = new_mute);
     state.events.publish(
         "mute_changed",
