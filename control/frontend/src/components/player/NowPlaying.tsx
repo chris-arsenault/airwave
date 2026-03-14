@@ -295,8 +295,8 @@ export function NowPlaying() {
         </button>
       </div>
 
-      {/* Bottom padding for mobile nav */}
-      <div className="pb-2 shrink-0" />
+      {/* Bottom padding: extra space on mobile for fixed bottom nav */}
+      <div className="pb-20 md:pb-2 shrink-0" />
     </div>
   )
 }

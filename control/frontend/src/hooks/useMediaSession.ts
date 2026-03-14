@@ -3,12 +3,33 @@ import { api } from '../api/client'
 import { usePlayerStore } from '../stores/playerStore'
 import { useDeviceStore } from '../stores/deviceStore'
 
-// Tiny silent MP3 (1 frame of silence) — avoids needing to host a file
-const SILENT_MP3 =
-  'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRBqmAAAAAAD/+1DEAAAH+ANoUAAAIscKbgwxSCIAAHDHgAAEJBAEf/U////qIf///0w/+oAAAAGkjNakjNbiRsWVFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV'
-
 const VOLUME_STEP = 0.05
 const VOLUME_MIDPOINT = 0.5
+
+/** Generate a valid 1-second silent WAV as a Blob URL */
+function createSilentAudio(): string {
+  const sampleRate = 8000
+  const numSamples = sampleRate
+  const buffer = new ArrayBuffer(44 + numSamples * 2)
+  const view = new DataView(buffer)
+  const write = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i))
+  }
+  write(0, 'RIFF')
+  view.setUint32(4, 36 + numSamples * 2, true)
+  write(8, 'WAVE')
+  write(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * 2, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  write(36, 'data')
+  view.setUint32(40, numSamples * 2, true)
+  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }))
+}
 
 function handleVolumeChange(audioRef: React.RefObject<HTMLAudioElement | null>, lastVolumeRef: React.RefObject<number>) {
   const audio = audioRef.current
@@ -49,7 +70,7 @@ export function useMediaSession() {
       if (activatedRef.current) return
       activatedRef.current = true
 
-      const audio = new Audio(SILENT_MP3)
+      const audio = new Audio(createSilentAudio())
       audio.loop = true
       audio.volume = VOLUME_MIDPOINT
       audioRef.current = audio
@@ -82,7 +103,7 @@ export function useMediaSession() {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
 
-  // Sync metadata and action handlers
+  // Sync metadata
   useEffect(() => {
     if (!('mediaSession' in navigator)) return
 
@@ -90,10 +111,10 @@ export function useMediaSession() {
       const track = state.currentTrack
       if (!track) {
         navigator.mediaSession.metadata = null
+        navigator.mediaSession.playbackState = 'none'
         return
       }
 
-      // Only update metadata when track changes
       if (track.id !== prev.currentTrack?.id) {
         const artwork: MediaImage[] = []
         if (track.id) {
@@ -129,7 +150,7 @@ export function useMediaSession() {
     return unsub
   }, [])
 
-  // Action handlers (separate effect to avoid re-registering on every state change)
+  // Action handlers
   useEffect(() => {
     if (!('mediaSession' in navigator)) return
 
