@@ -65,51 +65,32 @@ describe('NowPlaying', () => {
     })
   })
 
-  it('does not render mobile sheet when closed', () => {
-    const { container } = renderWithProviders(<NowPlaying open={false} onClose={vi.fn()} />)
-    // No mobile full-screen overlay when closed
-    expect(container.querySelector('[class*="fixed"]')).toBeNull()
-  })
-
-  // The component renders both a mobile sheet (when open) and a desktop panel (always).
-  // In JSDOM, both are in the DOM since CSS display:none doesn't work.
-  // We use getAllByText to handle duplicates.
-
-  it('shows track info when open', () => {
-    renderWithProviders(<NowPlaying open={true} onClose={vi.fn()} />)
-    expect(screen.getAllByText('Test Song').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Test Artist \u2014 Test Album').length).toBeGreaterThanOrEqual(1)
+  it('shows track info', () => {
+    renderWithProviders(<NowPlaying />)
+    expect(screen.getByText('Test Song')).toBeInTheDocument()
+    expect(screen.getByText('Test Artist \u2014 Test Album')).toBeInTheDocument()
   })
 
   it('shows device name', () => {
-    renderWithProviders(<NowPlaying open={true} onClose={vi.fn()} />)
-    expect(screen.getAllByText('Living Room').length).toBeGreaterThanOrEqual(1)
+    renderWithProviders(<NowPlaying />)
+    expect(screen.getByText('Living Room')).toBeInTheDocument()
   })
 
   it('shows formatted time', () => {
-    renderWithProviders(<NowPlaying open={true} onClose={vi.fn()} />)
-    expect(screen.getAllByText('1:00').length).toBeGreaterThanOrEqual(1) // 60s
-    expect(screen.getAllByText('4:30').length).toBeGreaterThanOrEqual(1) // 270s
+    renderWithProviders(<NowPlaying />)
+    expect(screen.getByText('1:00')).toBeInTheDocument() // 60s
+    expect(screen.getByText('4:30')).toBeInTheDocument() // 270s
   })
 
   it('shows "Nothing playing" when no track', () => {
     usePlayerStore.setState({ currentTrack: null })
-    renderWithProviders(<NowPlaying open={true} onClose={vi.fn()} />)
-    expect(screen.getAllByText('Nothing playing').length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('calls onClose when chevron is clicked', () => {
-    const onClose = vi.fn()
-    renderWithProviders(<NowPlaying open={true} onClose={onClose} />)
-    const buttons = screen.getAllByRole('button')
-    // First button in mobile sheet is the close chevron
-    fireEvent.click(buttons[0])
-    expect(onClose).toHaveBeenCalled()
+    renderWithProviders(<NowPlaying />)
+    expect(screen.getByText('Nothing playing')).toBeInTheDocument()
   })
 
   it('calls api.resume when play is clicked while paused', () => {
     usePlayerStore.setState({ playing: false })
-    renderWithProviders(<NowPlaying open={true} onClose={vi.fn()} />)
+    renderWithProviders(<NowPlaying />)
     const bigButton = document.querySelector('button.w-16')!
     fireEvent.click(bigButton)
     expect(mockResume).toHaveBeenCalledWith('dev-1')
@@ -117,10 +98,9 @@ describe('NowPlaying', () => {
 
   it('calls api.pause when pause is clicked while playing', () => {
     usePlayerStore.setState({ playing: true })
-    renderWithProviders(<NowPlaying open={true} onClose={vi.fn()} />)
+    renderWithProviders(<NowPlaying />)
     const bigButton = document.querySelector('button.w-16')!
     fireEvent.click(bigButton)
     expect(mockPause).toHaveBeenCalledWith('dev-1')
   })
-
 })

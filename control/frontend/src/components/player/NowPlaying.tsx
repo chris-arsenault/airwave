@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../../api/client'
 import { usePlayerStore } from '../../stores/playerStore'
 import { useDeviceStore } from '../../stores/deviceStore'
 import { useArtColor } from '../../hooks/useArtColor'
+import { DevicePill } from '../layout/DevicePill'
 
 const SHUFFLE_MODES = ['off', 'tracks', 'groups', 'both'] as const
 const SHUFFLE_LABELS: Record<string, string> = {
@@ -20,12 +20,7 @@ const REPEAT_LABELS: Record<string, string> = {
   track: '1',
 }
 
-interface Props {
-  open: boolean
-  onClose: () => void
-}
-
-export function NowPlaying({ open, onClose }: Props) {
+export function NowPlaying() {
   const { playing, currentTrack, elapsedSeconds, durationSeconds, shuffleMode, repeatMode, session, allowedActions } = usePlayerStore()
   const { setPlaying, setShuffleMode, setRepeatMode } = usePlayerStore()
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId)
@@ -37,7 +32,13 @@ export function NowPlaying({ open, onClose }: Props) {
   const setSleepRemaining = usePlayerStore((s) => s.setSleepRemaining)
   const [sleepTimerOpen, setSleepTimerOpen] = useState(false)
 
-  // Fetch sleep timer state once when device changes (SSE handles updates after that)
+  const isWiim = activeDevice?.device_type === 'wiim'
+  const canSeek = allowedActions.length === 0 || allowedActions.includes('Seek')
+  const canQuickSeek = canSeek && isWiim
+  const canNext = allowedActions.length === 0 || allowedActions.includes('Next')
+  const canPrev = allowedActions.length === 0 || allowedActions.includes('Previous')
+
+  // Fetch sleep timer state once when device changes
   useEffect(() => {
     if (!activeDeviceId) return
     let cancelled = false
@@ -47,7 +48,7 @@ export function NowPlaying({ open, onClose }: Props) {
     return () => { cancelled = true }
   }, [activeDeviceId, setSleepRemaining])
 
-  // Local countdown — decrement sleepRemaining every second so the UI ticks without polling
+  // Local countdown
   useEffect(() => {
     if (sleepRemaining == null || sleepRemaining <= 0) return
     const interval = setInterval(() => {
@@ -73,20 +74,14 @@ export function NowPlaying({ open, onClose }: Props) {
 
   const handleNext = useCallback(async () => {
     if (!activeDeviceId) return
-    if (session) {
-      await api.sessionNext(activeDeviceId)
-    } else {
-      await api.next(activeDeviceId)
-    }
+    if (session) await api.sessionNext(activeDeviceId)
+    else await api.next(activeDeviceId)
   }, [activeDeviceId, session])
 
   const handlePrev = useCallback(async () => {
     if (!activeDeviceId) return
-    if (session) {
-      await api.sessionPrev(activeDeviceId)
-    } else {
-      await api.prev(activeDeviceId)
-    }
+    if (session) await api.sessionPrev(activeDeviceId)
+    else await api.prev(activeDeviceId)
   }, [activeDeviceId, session])
 
   const handleSeek = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,11 +123,8 @@ export function NowPlaying({ open, onClose }: Props) {
     if (!activeDeviceId) return
     const idx = SHUFFLE_MODES.indexOf(shuffleMode as typeof SHUFFLE_MODES[number])
     const next = SHUFFLE_MODES[(idx + 1) % SHUFFLE_MODES.length]
-    if (session) {
-      await api.sessionSetShuffle(activeDeviceId, next)
-    } else {
-      await api.setShuffle(activeDeviceId, next)
-    }
+    if (session) await api.sessionSetShuffle(activeDeviceId, next)
+    else await api.setShuffle(activeDeviceId, next)
     setShuffleMode(next)
   }, [activeDeviceId, shuffleMode, setShuffleMode, session])
 
@@ -140,178 +132,19 @@ export function NowPlaying({ open, onClose }: Props) {
     if (!activeDeviceId) return
     const idx = REPEAT_MODES.indexOf(repeatMode as typeof REPEAT_MODES[number])
     const next = REPEAT_MODES[(idx + 1) % REPEAT_MODES.length]
-    if (session) {
-      await api.sessionSetRepeat(activeDeviceId, next)
-    } else {
-      await api.setRepeat(activeDeviceId, next)
-    }
+    if (session) await api.sessionSetRepeat(activeDeviceId, next)
+    else await api.setRepeat(activeDeviceId, next)
     setRepeatMode(next)
   }, [activeDeviceId, repeatMode, setRepeatMode, session])
 
-  // Desktop right panel (always visible when mounted via App)
-  // Mobile bottom sheet (animated)
   return (
-    <>
-      {/* Mobile: full-screen bottom sheet */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="fixed inset-0 z-50 flex flex-col md:hidden"
-            style={{ background: colors.muted }}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-          >
-            <NowPlayingContent
-              onClose={onClose}
-              colors={colors}
-              playing={playing}
-              currentTrack={currentTrack}
-              elapsedSeconds={elapsedSeconds}
-              durationSeconds={durationSeconds}
-              shuffleMode={shuffleMode}
-              repeatMode={repeatMode}
-              session={session}
-              allowedActions={allowedActions}
-              activeDevice={activeDevice}
-              handlePlayPause={handlePlayPause}
-              handleNext={handleNext}
-              handlePrev={handlePrev}
-              handleSeek={handleSeek}
-              handleSeekForward={handleSeekForward}
-              handleSeekBackward={handleSeekBackward}
-
-              cycleShuffle={cycleShuffle}
-              cycleRepeat={cycleRepeat}
-              sleepTimerOpen={sleepTimerOpen}
-              setSleepTimerOpen={setSleepTimerOpen}
-              sleepRemaining={sleepRemaining}
-              handleSetSleepTimer={handleSetSleepTimer}
-              handleCancelSleepTimer={handleCancelSleepTimer}
-              rating={rating}
-              handleRate={handleRate}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Desktop: right panel */}
-      <div
-        className="app-nowplaying flex-col"
-        style={{ background: colors.muted }}
-      >
-        <NowPlayingContent
-          colors={colors}
-          playing={playing}
-          currentTrack={currentTrack}
-          elapsedSeconds={elapsedSeconds}
-          durationSeconds={durationSeconds}
-          shuffleMode={shuffleMode}
-          repeatMode={repeatMode}
-          session={session}
-          allowedActions={allowedActions}
-          activeDevice={activeDevice}
-          handlePlayPause={handlePlayPause}
-          handleNext={handleNext}
-          handlePrev={handlePrev}
-          handleSeek={handleSeek}
-          handleSeekForward={handleSeekForward}
-          handleSeekBackward={handleSeekBackward}
-          cycleShuffle={cycleShuffle}
-          cycleRepeat={cycleRepeat}
-          sleepTimerOpen={sleepTimerOpen}
-          setSleepTimerOpen={setSleepTimerOpen}
-          sleepRemaining={sleepRemaining}
-          handleSetSleepTimer={handleSetSleepTimer}
-          handleCancelSleepTimer={handleCancelSleepTimer}
-          rating={rating}
-          handleRate={handleRate}
-        />
-      </div>
-    </>
-  )
-}
-
-interface ContentProps {
-  onClose?: () => void
-  colors: { dominant: string; muted: string }
-  playing: boolean
-  currentTrack: ReturnType<typeof usePlayerStore.getState>['currentTrack']
-  elapsedSeconds: number
-  durationSeconds: number
-  shuffleMode: string
-  repeatMode: string
-  session: ReturnType<typeof usePlayerStore.getState>['session']
-  allowedActions: string[]
-  activeDevice: ReturnType<typeof useDeviceStore.getState>['devices'][number] | undefined
-  handlePlayPause: () => void
-  handleNext: () => void
-  handlePrev: () => void
-  handleSeek: (e: React.ChangeEvent<HTMLInputElement>) => void
-  handleSeekForward: () => void
-  handleSeekBackward: () => void
-  cycleShuffle: () => void
-  cycleRepeat: () => void
-  sleepTimerOpen: boolean
-  setSleepTimerOpen: (open: boolean) => void
-  sleepRemaining: number | null
-  handleSetSleepTimer: (minutes: number) => void
-  handleCancelSleepTimer: () => void
-  rating: number
-  handleRate: (stars: number) => void
-}
-
-function NowPlayingContent({
-  onClose,
-  colors,
-  playing,
-  currentTrack,
-  elapsedSeconds,
-  durationSeconds,
-  shuffleMode,
-  repeatMode,
-  session,
-  allowedActions,
-  activeDevice,
-  handlePlayPause,
-  handleNext,
-  handlePrev,
-  handleSeek,
-  handleSeekForward,
-  handleSeekBackward,
-  cycleShuffle,
-  cycleRepeat,
-  sleepTimerOpen,
-  setSleepTimerOpen,
-  sleepRemaining,
-  handleSetSleepTimer,
-  handleCancelSleepTimer,
-  rating,
-  handleRate,
-}: ContentProps) {
-  const isWiim = activeDevice?.device_type === 'wiim'
-  const canSeek = allowedActions.length === 0 || allowedActions.includes('Seek')
-  const canQuickSeek = canSeek && isWiim
-  const canNext = allowedActions.length === 0 || allowedActions.includes('Next')
-  const canPrev = allowedActions.length === 0 || allowedActions.includes('Previous')
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
+    <div className="flex flex-col h-full" style={{ background: colors.muted }}>
+      {/* Header: device selector + sleep timer */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
-        {onClose ? (
-          <button onClick={onClose} className="p-2 text-white/70 hover:text-white">
-            <ChevronDownIcon />
-          </button>
-        ) : (
-          <div className="w-10" />
-        )}
-        <div className="text-center">
-          <div className="text-xs text-white/60 uppercase tracking-wider">
-            {activeDevice?.name ?? 'No device'}
-          </div>
+        <DevicePill />
+        <div className="text-center flex-1 min-w-0 px-2">
           {session && (
-            <div className="text-[10px] text-white/40 truncate max-w-[200px]">
+            <div className="text-[10px] text-white/40 truncate">
               {session.label}
               {session.total_tracks > 0 && ` \u2022 ${session.position + 1}/${session.total_tracks}`}
             </div>
@@ -370,7 +203,6 @@ function NowPlayingContent({
             : 'Select a track to play'
           }
         </div>
-        {/* Star rating */}
         {currentTrack && (
           <div className="flex items-center justify-center gap-1 mt-2">
             {[1, 2, 3, 4, 5].map((star) => (
@@ -386,7 +218,7 @@ function NowPlayingContent({
         )}
       </div>
 
-      {/* Seek bar with forward/backward buttons */}
+      {/* Seek bar */}
       <div className="px-6 py-2 shrink-0">
         <div className="flex items-center gap-2">
           <button
@@ -463,8 +295,8 @@ function NowPlayingContent({
         </button>
       </div>
 
-      {/* Bottom padding */}
-      <div className="pb-8 shrink-0" />
+      {/* Bottom padding for mobile nav */}
+      <div className="pb-2 shrink-0" />
     </div>
   )
 }
@@ -503,14 +335,6 @@ function NowPlayingArt({ trackId, title }: { trackId: string | null; title: stri
 }
 
 // Icons
-function ChevronDownIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <polyline points="6,9 12,15 18,9" />
-    </svg>
-  )
-}
-
 function PlayIcon({ size = 24 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -594,4 +418,3 @@ function SeekBackIcon() {
     </svg>
   )
 }
-

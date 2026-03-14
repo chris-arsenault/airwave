@@ -14,7 +14,7 @@ const items: NavItem[] = [
 ]
 
 interface Props {
-  active: string
+  active: string | null
   onNavigate: (id: string) => void
 }
 

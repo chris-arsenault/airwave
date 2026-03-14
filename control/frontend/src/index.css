@@ -20,54 +20,52 @@ body {
   user-select: none;
 }
 
-/* Mobile: stacked layout with bottom nav + mini player */
+/* Mobile: player-first, drawers overlay */
 .app-layout {
-  min-height: 100vh;
-  padding-bottom: 120px; /* room for mini-player + bottom nav */
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 .app-sidebar {
   display: none;
 }
-.app-nowplaying {
-  display: none;
+.app-content {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
 }
-.mini-player {
-  position: fixed;
-  bottom: 56px; /* above bottom nav */
-  left: 0;
-  right: 0;
-  z-index: 40;
+.app-player {
+  height: 100%;
+  overflow-y: auto;
 }
 
-/* Desktop three-panel layout */
+/* Desktop: sidebar + split view */
 @media (min-width: 768px) {
   .app-layout {
     display: grid;
-    grid-template-columns: 64px 1fr 360px;
+    grid-template-columns: 64px 1fr;
     grid-template-rows: 1fr;
     height: 100vh;
     overflow: hidden;
-    min-height: 0;
-    padding-bottom: 0;
   }
   .app-sidebar {
     display: flex;
     grid-column: 1;
     grid-row: 1;
   }
-  .app-main {
+  .app-content {
     grid-column: 2;
     grid-row: 1;
-    overflow-y: auto;
-  }
-  .app-nowplaying {
     display: flex;
-    grid-column: 3;
-    grid-row: 1;
-    overflow-y: auto;
   }
-  .mini-player {
-    display: none;
+  .app-player {
+    flex: 1;
+  }
+  .app-drawer-panel {
+    width: 420px;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    overflow-y: auto;
   }
 }
 
@@ -118,21 +116,21 @@ input[type='range']::-moz-range-thumb {
 
 /* Scrollbar styling for desktop */
 @media (min-width: 768px) {
-  .app-main::-webkit-scrollbar,
-  .app-nowplaying::-webkit-scrollbar {
+  .app-player::-webkit-scrollbar,
+  .app-drawer-panel::-webkit-scrollbar {
     width: 6px;
   }
-  .app-main::-webkit-scrollbar-track,
-  .app-nowplaying::-webkit-scrollbar-track {
+  .app-player::-webkit-scrollbar-track,
+  .app-drawer-panel::-webkit-scrollbar-track {
     background: transparent;
   }
-  .app-main::-webkit-scrollbar-thumb,
-  .app-nowplaying::-webkit-scrollbar-thumb {
+  .app-player::-webkit-scrollbar-thumb,
+  .app-drawer-panel::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.08);
     border-radius: 3px;
   }
-  .app-main::-webkit-scrollbar-thumb:hover,
-  .app-nowplaying::-webkit-scrollbar-thumb:hover {
+  .app-player::-webkit-scrollbar-thumb:hover,
+  .app-drawer-panel::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.15);
   }
 }

@@ -1,7 +1,7 @@
 import { useDeviceStore } from '../../stores/deviceStore'
 
 interface Props {
-  active: string
+  active: string | null
   onNavigate: (id: string) => void
 }
 

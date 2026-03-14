@@ -13,7 +13,9 @@ vi.mock('./api/client', () => ({
     getQueue: vi.fn(() => Promise.resolve({ tracks: [], position: 0 })),
     pause: vi.fn(() => Promise.resolve()),
     resume: vi.fn(() => Promise.resolve()),
+    getSleepTimer: vi.fn(() => Promise.resolve({ remaining_seconds: null })),
     getPresets: vi.fn(() => Promise.resolve({ presets: {} })),
+    artUrl: vi.fn((id: string) => `/api/art/${id}`),
   },
 }))
 
@@ -41,14 +43,13 @@ describe('App', () => {
     usePlayerStore.setState({ playing: false, currentTrack: null, session: null })
   })
 
-  it('renders the app header', () => {
+  it('shows player as main view', () => {
     renderWithProviders(<App />)
-    expect(screen.getByText('WiiM Control')).toBeInTheDocument()
+    expect(screen.getByText('Nothing playing')).toBeInTheDocument()
   })
 
   it('renders bottom navigation', () => {
     renderWithProviders(<App />)
-    // All tabs are always mounted, so use the nav element to scope
     const nav = screen.getByRole('navigation')
     expect(nav).toHaveTextContent('Library')
     expect(nav).toHaveTextContent('Queue')
@@ -56,31 +57,26 @@ describe('App', () => {
     expect(nav).toHaveTextContent('EQ')
   })
 
-  it('shows Library tab by default', async () => {
+  it('opens Library drawer on nav click', async () => {
     renderWithProviders(<App />)
-    // Library search bar should be visible
+    fireEvent.click(screen.getAllByText('Library')[0])
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Search tracks, artists, albums...')).toBeInTheDocument()
+      // Both desktop and mobile drawers render in JSDOM
+      expect(screen.getAllByPlaceholderText('Search tracks, artists, albums...').length).toBeGreaterThanOrEqual(1)
     })
   })
 
-  it('navigates to Queue tab', async () => {
-    renderWithProviders(<App />)
-    fireEvent.click(screen.getAllByText('Queue')[0])
-    await waitFor(() => {
-      expect(screen.getAllByText('No device selected').length).toBeGreaterThanOrEqual(1)
-    })
-  })
-
-  it('navigates to Rooms tab', () => {
+  it('opens Rooms drawer on nav click', () => {
     renderWithProviders(<App />)
     fireEvent.click(screen.getAllByText('Rooms')[0])
-    expect(screen.getByText('Discovering devices...')).toBeInTheDocument()
+    expect(screen.getAllByText('Discovering devices...').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('navigates to EQ tab', () => {
+  it('toggles drawer closed on second click', () => {
     renderWithProviders(<App />)
-    fireEvent.click(screen.getAllByText('EQ')[0])
-    expect(screen.getAllByText('No device selected').length).toBeGreaterThanOrEqual(1)
+    fireEvent.click(screen.getAllByText('Rooms')[0])
+    expect(screen.getAllByText('Discovering devices...').length).toBeGreaterThanOrEqual(1)
+    fireEvent.click(screen.getAllByText('Rooms')[0])
+    expect(screen.getByText('Nothing playing')).toBeInTheDocument()
   })
 })
