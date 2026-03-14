@@ -96,6 +96,11 @@ pub async fn run_playback_monitor(
             let session_lock = sessions.get_or_create(&device.id);
             let has_session = session_lock.read().is_some();
 
+            let track_uri = position
+                .as_ref()
+                .map(|p| p.track_uri.clone())
+                .unwrap_or_default();
+
             if has_session {
                 handle_session_device(
                     &device,
@@ -105,6 +110,7 @@ pub async fn run_playback_monitor(
                     &events,
                     &mut last_states,
                     &transport_state,
+                    &track_uri,
                     playing,
                     elapsed,
                     duration,
@@ -155,11 +161,68 @@ async fn handle_session_device(
     events: &EventBus,
     last_states: &mut HashMap<String, String>,
     transport_state: &str,
+    track_uri: &str,
     playing: bool,
     elapsed: f64,
     duration: f64,
 ) {
     let prev = last_states.get(&device.id).cloned().unwrap_or_default();
+
+    // Detect seamless auto-transition: device used SetNextAVTransportURI and
+    // transitioned without stopping (PLAYING → PLAYING). The device's track_uri
+    // will no longer match the session's current track.
+    if playing {
+        let auto_transitioned = {
+            let session = session_lock.read();
+            if let Some(ref s) = *session {
+                if s.is_next_sent() && !track_uri.is_empty() {
+                    if let Some(current_id) = s.current_track_id() {
+                        let expected_suffix = format!("/media/{}", current_id);
+                        !track_uri.ends_with(&expected_suffix)
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        };
+
+        if auto_transitioned {
+            debug!(
+                "Detected seamless auto-transition on device {}, advancing session",
+                device.id
+            );
+            let next_track_id = {
+                let mut session = session_lock.write();
+                if let Some(ref mut s) = *session {
+                    s.advance() // also clears next_sent
+                } else {
+                    None
+                }
+            };
+            if let Some(track_id) = next_track_id {
+                let (title, artist) = {
+                    let lib = library.read();
+                    match lib.get(&track_id) {
+                        Some(LibraryObject::Track(track)) => {
+                            (track.meta.title.clone(), Some(track.meta.artist.clone()))
+                        }
+                        _ => (String::new(), None),
+                    }
+                };
+                events.publish(
+                    "track_changed",
+                    &serde_json::json!({
+                        "device_id": device.id,
+                        "track": { "id": track_id, "title": title, "artist": artist }
+                    }),
+                );
+            }
+        }
+    }
 
     // Pre-fetch: if playing and within 5s of track end, send next URI.
     if playing && duration > 0.0 && (duration - elapsed) <= 5.0 {
