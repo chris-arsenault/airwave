@@ -365,10 +365,8 @@ pub async fn run_discovery(
                                     .unwrap_or(device.name);
 
                                 // Derive group state from what the device reports
-                                let (is_slave, is_master) = derive_group_role(
-                                    &dev_info.slave_list,
-                                    &dev_info.raw,
-                                );
+                                let (is_slave, is_master) =
+                                    derive_group_role(&dev_info.slave_list, &dev_info.raw);
                                 if is_master {
                                     device.is_master = true;
                                     device.group_id = Some(id.clone());
@@ -376,7 +374,8 @@ pub async fn run_discovery(
                                     // Slave — resolve master by IP from Status JSON.
                                     // Master may not be registered yet during initial discovery,
                                     // so fall back to None (refresh_group_state will fix it later).
-                                    device.group_id = resolve_master_id(&dev_info.raw, &device_manager);
+                                    device.group_id =
+                                        resolve_master_id(&dev_info.raw, &device_manager);
                                 }
 
                                 debug!(
@@ -440,9 +439,10 @@ pub async fn run_discovery(
                                 None => continue,
                             };
                             // Skip if we already discovered this device via SSDP
-                            if current_ids.iter().any(|id| {
-                                device_manager.get(id).is_some_and(|d| d.ip == slave_ip)
-                            }) {
+                            if current_ids
+                                .iter()
+                                .any(|id| device_manager.get(id).is_some_and(|d| d.ip == slave_ip))
+                            {
                                 continue;
                             }
                             // Try to fetch description.xml directly from the slave
@@ -460,7 +460,10 @@ pub async fn run_discovery(
                                     );
                                     let initial_caps = DeviceCapabilities {
                                         av_transport: info.service_urls.av_transport.is_some(),
-                                        rendering_control: info.service_urls.rendering_control.is_some(),
+                                        rendering_control: info
+                                            .service_urls
+                                            .rendering_control
+                                            .is_some(),
                                         wiim_extended: info.has_play_queue,
                                         https_api: false,
                                     };
@@ -494,7 +497,8 @@ pub async fn run_discovery(
                                         let has_https = probe.probe().await;
                                         device.capabilities.https_api = has_https;
                                         if has_https {
-                                            device.https_client = Some(HttpsApiClient::new(&device.ip));
+                                            device.https_client =
+                                                Some(HttpsApiClient::new(&device.ip));
                                         }
                                     }
 
@@ -534,11 +538,7 @@ pub async fn run_discovery(
 /// Refresh group state for an already-registered device by querying GetControlDeviceInfo
 /// and GetInfoEx. This runs on every discovery cycle for existing devices so we pick up
 /// group changes made by other apps (e.g. the WiiM app).
-async fn refresh_group_state(
-    device_id: &str,
-    device_manager: &DeviceManager,
-    events: &EventBus,
-) {
+async fn refresh_group_state(device_id: &str, device_manager: &DeviceManager, events: &EventBus) {
     let device = match device_manager.get(device_id) {
         Some(d) => d,
         None => return,

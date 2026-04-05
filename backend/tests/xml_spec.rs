@@ -465,13 +465,15 @@ mod soap_envelope {
 
     #[test]
     fn fault_is_valid_xml() {
-        let s = airwave_server::upnp::soap::soap_fault("s:Client", "UPnPError", 401, "Invalid Action");
+        let s =
+            airwave_server::upnp::soap::soap_fault("s:Client", "UPnPError", 401, "Invalid Action");
         parse_xml(&s);
     }
 
     #[test]
     fn fault_has_correct_structure() {
-        let s = airwave_server::upnp::soap::soap_fault("s:Client", "UPnPError", 701, "No such object");
+        let s =
+            airwave_server::upnp::soap::soap_fault("s:Client", "UPnPError", 701, "No such object");
         let doc = parse_xml(&s);
 
         assert_eq!(element_text(&doc, "faultcode"), "s:Client");
@@ -518,11 +520,11 @@ mod soap_envelope {
 
 mod didl_lite {
     use super::*;
-    use std::path::PathBuf;
-    use std::time::Duration;
     use airwave_server::media::library::{Container, Track};
     use airwave_server::media::metadata::TrackMetadata;
     use airwave_server::upnp::didl::DidlWriter;
+    use std::path::PathBuf;
+    use std::time::Duration;
 
     fn sample_container() -> Container {
         Container {

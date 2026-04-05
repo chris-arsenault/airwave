@@ -106,11 +106,7 @@ pub async fn create_group(
 ///
 /// If the master already had a session, re-send the current track so slaves
 /// pick it up. If a slave had a session instead, transfer it to the master.
-async fn resync_playback_after_group(
-    state: &ControlState,
-    master_id: &str,
-    slave_ids: &[String],
-) {
+async fn resync_playback_after_group(state: &ControlState, master_id: &str, slave_ids: &[String]) {
     // Check if master has an active session with a current track.
     let master_track = {
         let lock = state.sessions.get_or_create(master_id);
@@ -208,7 +204,10 @@ pub async fn dissolve_group(
     if let Some(ref https) = master.https_client {
         // Query the master for its current slave list so we don't rely on stale in-memory state.
         let slave_list = https.get_slave_list().await.map_err(|e| {
-            error!("Failed to get slave list from master {}: {:?}", master_id, e);
+            error!(
+                "Failed to get slave list from master {}: {:?}",
+                master_id, e
+            );
             StatusCode::BAD_GATEWAY
         })?;
 

@@ -53,9 +53,7 @@ pub async fn save_preset(
         if device.is_master {
             let slave_ids: Vec<String> = devices
                 .iter()
-                .filter(|d| {
-                    d.group_id.as_deref() == Some(&device.id) && d.id != device.id
-                })
+                .filter(|d| d.group_id.as_deref() == Some(&device.id) && d.id != device.id)
                 .map(|d| d.id.clone())
                 .collect();
             if !slave_ids.is_empty() {
@@ -73,7 +71,11 @@ pub async fn save_preset(
     })?;
 
     state.device_config.save_preset(slot, &json);
-    info!("Saved group preset to slot {}: {} group(s)", slot, groups.len());
+    info!(
+        "Saved group preset to slot {}: {} group(s)",
+        slot,
+        groups.len()
+    );
     Ok(StatusCode::OK)
 }
 
@@ -101,7 +103,10 @@ pub async fn load_preset(
     let masters: Vec<_> = devices.iter().filter(|d| d.is_master).cloned().collect();
 
     for master in &masters {
-        info!("Dissolving existing group: master={} ({})", master.name, master.id);
+        info!(
+            "Dissolving existing group: master={} ({})",
+            master.name, master.id
+        );
 
         if let Some(ref https) = master.https_client {
             match https.get_slave_list().await {
@@ -162,17 +167,19 @@ pub async fn load_preset(
 
     // Step 2: Create groups from the preset.
     for group in &groups {
-        let master = state
-            .devices
-            .get(&group.master_id)
-            .ok_or_else(|| {
-                error!("Preset references unknown master device: {}", group.master_id);
-                StatusCode::NOT_FOUND
-            })?;
+        let master = state.devices.get(&group.master_id).ok_or_else(|| {
+            error!(
+                "Preset references unknown master device: {}",
+                group.master_id
+            );
+            StatusCode::NOT_FOUND
+        })?;
 
         info!(
             "Creating group from preset: master={} ({}) with {} slave(s)",
-            master.name, master.id, group.slave_ids.len()
+            master.name,
+            master.id,
+            group.slave_ids.len()
         );
 
         for slave_id in &group.slave_ids {
@@ -224,7 +231,11 @@ pub async fn load_preset(
     // Step 3: Publish devices_changed SSE event.
     publish_devices_changed(&state);
 
-    info!("Loaded group preset from slot {}: {} group(s)", slot, groups.len());
+    info!(
+        "Loaded group preset from slot {}: {} group(s)",
+        slot,
+        groups.len()
+    );
     Ok(StatusCode::OK)
 }
 

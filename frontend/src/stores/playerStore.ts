@@ -1,27 +1,27 @@
-import { create } from 'zustand'
-import type { QueueTrack, SessionInfo } from '../api/client'
+import { create } from "zustand";
+import type { QueueTrack, SessionInfo } from "../api/client";
 
 interface PlayerState {
-  playing: boolean
-  currentTrack: QueueTrack | null
-  elapsedSeconds: number
-  durationSeconds: number
-  shuffleMode: string
-  repeatMode: string
-  session: SessionInfo | null
-  allowedActions: string[]
-  rating: number
-  sleepRemaining: number | null
-  setPlaying: (playing: boolean) => void
-  setCurrentTrack: (track: QueueTrack | null) => void
-  setElapsed: (seconds: number) => void
-  setDuration: (seconds: number) => void
-  setShuffleMode: (mode: string) => void
-  setRepeatMode: (mode: string) => void
-  setSession: (session: SessionInfo | null) => void
-  setAllowedActions: (actions: string[]) => void
-  setRating: (rating: number) => void
-  setSleepRemaining: (remaining: number | null) => void
+  playing: boolean;
+  currentTrack: QueueTrack | null;
+  elapsedSeconds: number;
+  durationSeconds: number;
+  shuffleMode: string;
+  repeatMode: string;
+  session: SessionInfo | null;
+  allowedActions: string[];
+  rating: number;
+  sleepRemaining: number | null;
+  setPlaying: (playing: boolean) => void;
+  setCurrentTrack: (track: QueueTrack | null) => void;
+  setElapsed: (seconds: number) => void;
+  setDuration: (seconds: number) => void;
+  setShuffleMode: (mode: string) => void;
+  setRepeatMode: (mode: string) => void;
+  setSession: (session: SessionInfo | null) => void;
+  setAllowedActions: (actions: string[]) => void;
+  setRating: (rating: number) => void;
+  setSleepRemaining: (remaining: number | null) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set) => ({
@@ -29,8 +29,8 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   currentTrack: null,
   elapsedSeconds: 0,
   durationSeconds: 0,
-  shuffleMode: 'off',
-  repeatMode: 'off',
+  shuffleMode: "off",
+  repeatMode: "off",
   session: null,
   allowedActions: [],
   rating: 0,
@@ -45,4 +45,4 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   setAllowedActions: (actions) => set({ allowedActions: actions }),
   setRating: (rating) => set({ rating }),
   setSleepRemaining: (remaining) => set({ sleepRemaining: remaining }),
-}))
+}));
