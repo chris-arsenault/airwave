@@ -4,3 +4,6 @@ stack:
   - rust
   - typescript
 truenas: true
+images:
+  - api
+  - web

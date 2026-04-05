@@ -1,7 +1,7 @@
 services:
-  server:
-    build: ./backend
-    container_name: airwave-server
+  api:
+    image: ghcr.io/chris-arsenault/airwave/api:${IMAGE_TAG:-latest}
+    container_name: airwave-api
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -9,14 +9,21 @@ services:
       - airwave-data:/data
     environment:
       - RUST_LOG=airwave_server=info
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:7882/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
 
-  frontend:
-    build: ./frontend
-    container_name: airwave-frontend
+  web:
+    image: ghcr.io/chris-arsenault/airwave/web:${IMAGE_TAG:-latest}
+    container_name: airwave-web
     network_mode: host
     restart: unless-stopped
     depends_on:
-      - server
+      api:
+        condition: service_healthy
 
 volumes:
   airwave-data:
