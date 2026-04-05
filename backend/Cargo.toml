@@ -1,17 +1,17 @@
 [package]
-name = "wiim-server"
+name = "airwave-server"
 version = "0.2.0"
 edition = "2021"
 description = "DLNA media server + WiiM device control plane"
 license = "MIT"
-repository = "https://github.com/chris-arsenault/wiim-dlna"
+repository = "https://github.com/chris-arsenault/airwave"
 
 [[bin]]
-name = "wiim-server"
+name = "airwave-server"
 path = "src/main.rs"
 
 [[bin]]
-name = "wiim-probe"
+name = "airwave-probe"
 path = "src/bin/probe.rs"
 
 [dependencies]

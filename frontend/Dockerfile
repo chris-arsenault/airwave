@@ -1,9 +1,10 @@
-FROM node:22-slim AS builder
+FROM node:24-slim AS builder
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 FROM nginx:alpine
 RUN rm /etc/nginx/conf.d/default.conf

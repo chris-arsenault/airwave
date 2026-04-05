@@ -37,7 +37,7 @@ mod device_description {
     use super::*;
 
     fn xml() -> String {
-        wiim_server::upnp::xml::device_description(
+        airwave_server::upnp::xml::device_description(
             "test-uuid-1234",
             "Test Server",
             "http://192.168.1.1:7882",
@@ -172,7 +172,7 @@ mod content_directory_scpd {
     use super::*;
 
     fn xml() -> &'static str {
-        wiim_server::upnp::xml::content_directory_scpd()
+        airwave_server::upnp::xml::content_directory_scpd()
     }
 
     #[test]
@@ -328,7 +328,7 @@ mod connection_manager_scpd {
     use super::*;
 
     fn xml() -> &'static str {
-        wiim_server::upnp::xml::connection_manager_scpd()
+        airwave_server::upnp::xml::connection_manager_scpd()
     }
 
     #[test]
@@ -413,7 +413,7 @@ mod soap_envelope {
 
     #[test]
     fn response_is_valid_xml() {
-        let s = wiim_server::upnp::soap::soap_response(
+        let s = airwave_server::upnp::soap::soap_response(
             "urn:schemas-upnp-org:service:ContentDirectory:1",
             "Browse",
             &[
@@ -428,7 +428,7 @@ mod soap_envelope {
 
     #[test]
     fn response_has_correct_envelope_structure() {
-        let s = wiim_server::upnp::soap::soap_response(
+        let s = airwave_server::upnp::soap::soap_response(
             "urn:schemas-upnp-org:service:ContentDirectory:1",
             "GetSystemUpdateID",
             &[("Id", "42")],
@@ -454,7 +454,7 @@ mod soap_envelope {
 
     #[test]
     fn response_contains_arguments() {
-        let s = wiim_server::upnp::soap::soap_response(
+        let s = airwave_server::upnp::soap::soap_response(
             "urn:schemas-upnp-org:service:ContentDirectory:1",
             "GetSystemUpdateID",
             &[("Id", "42")],
@@ -465,13 +465,13 @@ mod soap_envelope {
 
     #[test]
     fn fault_is_valid_xml() {
-        let s = wiim_server::upnp::soap::soap_fault("s:Client", "UPnPError", 401, "Invalid Action");
+        let s = airwave_server::upnp::soap::soap_fault("s:Client", "UPnPError", 401, "Invalid Action");
         parse_xml(&s);
     }
 
     #[test]
     fn fault_has_correct_structure() {
-        let s = wiim_server::upnp::soap::soap_fault("s:Client", "UPnPError", 701, "No such object");
+        let s = airwave_server::upnp::soap::soap_fault("s:Client", "UPnPError", 701, "No such object");
         let doc = parse_xml(&s);
 
         assert_eq!(element_text(&doc, "faultcode"), "s:Client");
@@ -496,7 +496,7 @@ mod soap_envelope {
   </s:Body>
 </s:Envelope>"#;
 
-        let action = wiim_server::upnp::soap::parse_soap_action(
+        let action = airwave_server::upnp::soap::parse_soap_action(
             "\"urn:schemas-upnp-org:service:ContentDirectory:1#Browse\"",
             body,
         )
@@ -520,9 +520,9 @@ mod didl_lite {
     use super::*;
     use std::path::PathBuf;
     use std::time::Duration;
-    use wiim_server::media::library::{Container, Track};
-    use wiim_server::media::metadata::TrackMetadata;
-    use wiim_server::upnp::didl::DidlWriter;
+    use airwave_server::media::library::{Container, Track};
+    use airwave_server::media::metadata::TrackMetadata;
+    use airwave_server::upnp::didl::DidlWriter;
 
     fn sample_container() -> Container {
         Container {
@@ -756,7 +756,7 @@ mod didl_lite {
 // ──────────────────────────────────────────────
 
 mod ssdp_messages {
-    use wiim_server::ssdp::messages;
+    use airwave_server::ssdp::messages;
 
     #[test]
     fn notify_alive_has_required_headers() {
@@ -823,7 +823,7 @@ mod ssdp_messages {
 // ──────────────────────────────────────────────
 
 mod library {
-    use wiim_server::media::library;
+    use airwave_server::media::library;
 
     #[test]
     fn empty_library_has_root() {

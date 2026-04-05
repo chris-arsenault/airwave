@@ -1,4 +1,4 @@
-use wiim_server::wiim::probe::probe_device;
+use airwave_server::wiim::probe::probe_device;
 
 #[tokio::main]
 async fn main() {

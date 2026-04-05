@@ -2,7 +2,7 @@
 
 ## Overview
 
-wiim-dlna implements a UPnP MediaServer:1 device. The UPnP Device Architecture 1.0 spec requires three protocol layers, plus HTTP media streaming:
+airwave implements a UPnP MediaServer:1 device. The UPnP Device Architecture 1.0 spec requires three protocol layers, plus HTTP media streaming:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -13,7 +13,7 @@ wiim-dlna implements a UPnP MediaServer:1 device. The UPnP Device Architecture 1
       │    (SSDP)    │    (HTTP/XML)  │  (SOAP/XML) │  (HTTP)
       ▼              ▼                ▼              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                     wiim-dlna                                │
+│                     airwave                                │
 │                                                              │
 │  ┌──────────┐  ┌──────────────┐  ┌───────────┐  ┌────────┐ │
 │  │   SSDP   │  │  UPnP XML    │  │ Services  │  │ Stream │ │
@@ -185,7 +185,7 @@ The SSDP task runs two sub-tasks: a listener for M-SEARCH requests and a periodi
 
 ## Control Plane
 
-In addition to serving media, wiim-server acts as the control plane for WiiM devices on the network. This adds several module groups not shown in the DLNA-focused diagram above:
+In addition to serving media, airwave-server acts as the control plane for WiiM devices on the network. This adds several module groups not shown in the DLNA-focused diagram above:
 
 ```
 src/

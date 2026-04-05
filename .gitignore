@@ -3,10 +3,19 @@ target/
 
 # Node
 node_modules/
-control/frontend/dist/
+frontend/dist/
 
 # SQLite
 *.db
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Environment
+.env
 
 # IDE
 .idea/

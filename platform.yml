@@ -1,0 +1,6 @@
+project: airwave
+prefix: airwave
+stack:
+  - rust
+  - typescript
+truenas: true

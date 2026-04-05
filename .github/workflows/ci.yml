@@ -1,99 +1,17 @@
-name: CI
+name: CI/CD
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  # ── WiiM Server (Rust) ──
-  server-check:
-    name: Server Check
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: wiim-server
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: wiim-server
-      - run: cargo check --all-targets
-
-  server-test:
-    name: Server Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: wiim-server
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: wiim-server
-      - run: cargo test
-
-  server-fmt:
-    name: Server Format
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: wiim-server
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - run: cargo fmt --all --check
-
-  server-clippy:
-    name: Server Clippy
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: wiim-server
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: wiim-server
-      - run: cargo clippy --all-targets
-
-  # ── Control Frontend (React) ──
-  frontend-lint:
-    name: Frontend Lint
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: control/frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-
-  frontend-test:
-    name: Frontend Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: control/frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: npm ci
-      - run: npm run test -- --run
+  ci:
+    uses: chris-arsenault/platform/.github/workflows/ci.yml@main
+    secrets: inherit

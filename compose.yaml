@@ -1,0 +1,22 @@
+services:
+  server:
+    build: ./backend
+    container_name: airwave-server
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /mnt/apps/shares/public/Music:/mnt/music
+      - airwave-data:/data
+    environment:
+      - RUST_LOG=airwave_server=info
+
+  frontend:
+    build: ./frontend
+    container_name: airwave-frontend
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - server
+
+volumes:
+  airwave-data:

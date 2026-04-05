@@ -12,10 +12,10 @@ pub fn device_description(uuid: &str, friendly_name: &str, base_url: &str) -> St
   <device>
     <deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>
     <friendlyName>{friendly_name}</friendlyName>
-    <manufacturer>wiim-dlna</manufacturer>
-    <manufacturerURL>https://github.com/wiim-dlna</manufacturerURL>
-    <modelDescription>Minimal DLNA Music Server for WiiM</modelDescription>
-    <modelName>wiim-dlna</modelName>
+    <manufacturer>airwave</manufacturer>
+    <manufacturerURL>https://github.com/chris-arsenault/airwave</manufacturerURL>
+    <modelDescription>DLNA Music Server for WiiM</modelDescription>
+    <modelName>airwave</modelName>
     <modelNumber>{version}</modelNumber>
     <UDN>uuid:{uuid}</UDN>
     <serviceList>

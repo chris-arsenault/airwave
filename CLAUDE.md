@@ -2,36 +2,36 @@
 
 ## Project Overview
 
-Monorepo for a WiiM audio ecosystem: a unified Rust server (DLNA media server + control plane) and a web-based frontend for WiiM devices.
+Airwave — a monorepo for a WiiM audio ecosystem: a unified Rust server (DLNA media server + control plane) and a web-based frontend for WiiM devices. Deployed to TrueNAS via Docker Compose + Komodo.
 
 ### Components
 
 | Directory | Language | Purpose |
 |-----------|----------|---------|
-| `wiim-server/` | Rust | Unified DLNA/UPnP MediaServer + control plane — SSDP, SOAP, HTTP streaming, device management, playback, queue/session engine, playlists, EQ, metadata editing, SSE |
-| `control/frontend/` | React/TypeScript (Vite) | Mobile-first web UI — library browser, now playing, queue, device/group management, metadata editing |
+| `backend/` | Rust | Unified DLNA/UPnP MediaServer + control plane — SSDP, SOAP, HTTP streaming, device management, playback, queue/session engine, playlists, EQ, metadata editing, SSE |
+| `frontend/` | React/TypeScript (Vite, pnpm) | Mobile-first web UI — library browser, now playing, queue, device/group management, metadata editing |
 
 ## Build & Run
 
-### WiiM Server (Rust)
+### Backend (Rust)
 
 ```bash
-cd wiim-server
+cd backend
 cargo build --release
 cargo test
 cargo fmt --all --check
-cargo clippy --all-targets
+cargo clippy -- -D warnings
 cargo run -- config.toml
 ```
 
-### Control Frontend (React)
+### Frontend (React)
 
 ```bash
-cd control/frontend
-npm install
-npm run dev                    # vite dev server
-npm run lint && npm run typecheck
-npm run test -- --run
+cd frontend
+pnpm install
+pnpm run dev                   # vite dev server
+pnpm run lint && pnpm run typecheck
+pnpm run test -- --run
 ```
 
 ### Full Stack (Docker)
@@ -40,9 +40,22 @@ npm run test -- --run
 docker compose up -d
 ```
 
+### Lint (all)
+
+```bash
+make ci
+```
+
+## Platform Integration
+
+- **CI**: Shared reusable workflow (`chris-arsenault/platform/.github/workflows/ci.yml@main`)
+- **Deploy**: TrueNAS via Komodo (`truenas: true` in `platform.yml`)
+- **Project registration**: `platform-control/infrastructure/terraform/project-airwave.tf`
+- **No database** (uses local SQLite), **no Cognito** (LAN appliance), **no ALB** (host networking)
+
 ## Architecture
 
-### WiiM Server
+### Backend
 - In-memory BTreeMap library with virtual containers (Artists/Albums/Genres/All Tracks)
 - No database for library, no transcoding — files served as-is
 - `Arc<RwLock<Library>>` (parking_lot) — never hold read guard across await
@@ -59,7 +72,7 @@ docker compose up -d
 - Album art extraction with SQLite cache
 - SOAP retry with exponential backoff for transient network errors
 
-### Control Frontend
+### Frontend
 - Zustand stores, TanStack Query, Tailwind CSS
 - Mobile-first layout: bottom nav, expandable now-playing bar
 - SSE hook for real-time device/playback updates (no polling)
@@ -68,7 +81,7 @@ docker compose up -d
 ## Key Constraints
 
 - Server needs host networking for SSDP multicast device discovery
-- Multiroom grouping uses HTTPS API, NOT SOAP (see `wiim-server/docs/WIIM-PROTOCOL.md`)
+- Multiroom grouping uses HTTPS API, NOT SOAP (see `backend/docs/WIIM-PROTOCOL.md`)
 - Device state is canonical — always read from device, never persist-and-restore group state
 - Music volume mounted read-write when metadata editing is enabled
 - No auth — this is a home network appliance

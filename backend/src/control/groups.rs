@@ -1,7 +1,9 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
+
+use crate::media::library::LibraryObject;
 
 use super::models::CreateGroupRequest;
 use super::state::ControlState;
@@ -86,11 +88,111 @@ pub async fn create_group(
     // Push updated device list to all frontends.
     publish_devices_changed(&state);
 
+    // After grouping, ensure slaves hear the master's audio.
+    // The firmware only mirrors tracks played AFTER grouping, so we need to
+    // re-send the current track. Also handle the case where a slave was
+    // the one playing — transfer its session to the master first.
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    resync_playback_after_group(&state, &body.master_id, &body.slave_ids).await;
+
     info!(
         "Group created: master={}, slaves={:?}",
         body.master_id, body.slave_ids
     );
     Ok(StatusCode::OK)
+}
+
+/// After forming a group, ensure the master is playing and slaves hear it.
+///
+/// If the master already had a session, re-send the current track so slaves
+/// pick it up. If a slave had a session instead, transfer it to the master.
+async fn resync_playback_after_group(
+    state: &ControlState,
+    master_id: &str,
+    slave_ids: &[String],
+) {
+    // Check if master has an active session with a current track.
+    let master_track = {
+        let lock = state.sessions.get_or_create(master_id);
+        let guard = lock.read();
+        guard
+            .as_ref()
+            .and_then(|s| s.current_track_id().map(|id| id.to_string()))
+    };
+
+    if let Some(track_id) = master_track {
+        // Master was playing — re-send to trigger firmware distribution.
+        resend_track(state, master_id, &track_id).await;
+        return;
+    }
+
+    // Master wasn't playing — check if any slave had an active session.
+    for slave_id in slave_ids {
+        let slave_session = {
+            let lock = state.sessions.get_or_create(slave_id);
+            let session = lock.write().take();
+            session
+        };
+        if let Some(session) = slave_session {
+            let track_id = match session.current_track_id() {
+                Some(id) => id.to_string(),
+                None => continue,
+            };
+            info!(
+                "Transferring session from slave {} to master {}",
+                slave_id, master_id
+            );
+            // Move session to master.
+            {
+                let lock = state.sessions.get_or_create(master_id);
+                *lock.write() = Some(session);
+            }
+            // Clear slave's queue too.
+            {
+                let queue = state.queues.get_or_create(slave_id);
+                queue.write().clear();
+            }
+            // Start playback on master.
+            resend_track(state, master_id, &track_id).await;
+            return;
+        }
+    }
+
+    debug!("No active session to resync after grouping {}", master_id);
+}
+
+/// Re-send SetAVTransportURI + Play on a device for the given track.
+async fn resend_track(state: &ControlState, device_id: &str, track_id: &str) {
+    let device = match state.devices.get(device_id) {
+        Some(d) => d,
+        None => return,
+    };
+
+    let stream_url = {
+        let lib = state.library.read();
+        match lib.get(track_id) {
+            Some(LibraryObject::Track(t)) => format!("{}/media/{}", state.base_url, t.id),
+            _ => {
+                warn!("Track {} not found for resync", track_id);
+                return;
+            }
+        }
+    };
+
+    if device
+        .av_transport
+        .set_av_transport_uri(&stream_url, "")
+        .await
+        .is_ok()
+    {
+        let _ = device.av_transport.play().await;
+        info!(
+            "Resynced playback on master {} with track {}",
+            device_id, track_id
+        );
+    } else {
+        warn!("Failed to resync playback on master {}", device_id);
+    }
 }
 
 pub async fn dissolve_group(
