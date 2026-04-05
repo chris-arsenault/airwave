@@ -5,5 +5,5 @@ stack:
   - typescript
 truenas: true
 images:
-  - api
-  - web
+  - backend
+  - frontend
