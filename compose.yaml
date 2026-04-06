@@ -1,7 +1,7 @@
 services:
-  api:
+  backend:
     image: ghcr.io/chris-arsenault/airwave/backend:${IMAGE_TAG:-latest}
-    container_name: airwave-api
+    container_name: airwave-backend
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -16,13 +16,13 @@ services:
       retries: 20
       start_period: 60s
 
-  web:
+  frontend:
     image: ghcr.io/chris-arsenault/airwave/frontend:${IMAGE_TAG:-latest}
-    container_name: airwave-web
+    container_name: airwave-frontend
     network_mode: host
     restart: unless-stopped
     depends_on:
-      api:
+      backend:
         condition: service_healthy
 
 volumes:
