@@ -48,9 +48,9 @@ make ci
 
 ## Platform Integration
 
-- **CI**: Shared reusable workflow (`chris-arsenault/platform/.github/workflows/ci.yml@main`)
+- **CI**: Shared reusable workflow (`chris-arsenault/ahara/.github/workflows/ci.yml@main`)
 - **Deploy**: TrueNAS via Komodo (`truenas: true` in `platform.yml`)
-- **Project registration**: `platform-control/infrastructure/terraform/project-airwave.tf`
+- **Project registration**: `ahara-control/infrastructure/terraform/project-airwave.tf`
 - **No database** (uses local SQLite), **no Cognito** (LAN appliance), **no ALB** (host networking)
 
 ## Architecture
