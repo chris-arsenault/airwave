@@ -1,0 +1,10 @@
+Airwave Control is a small native Android home-screen widget for an Airwave server.
+
+It does not include library browsing. It only provides player controls:
+
+* tap the selected device to cycle devices
+* volume down / volume up
+* play / pause
+* next track
+
+Configure the widget with the Airwave server URL, usually the LAN URL for your TrueNAS host.

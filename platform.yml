@@ -3,10 +3,14 @@ prefix: airwave
 stack:
   - rust
   - typescript
+  - android
 truenas: true
 images:
   - backend
   - frontend
+android:
+  dir: android
+  ci_task: assembleDebug
 rust_artifacts:
   binaries:
     - { bin: airwave-server, image: backend }

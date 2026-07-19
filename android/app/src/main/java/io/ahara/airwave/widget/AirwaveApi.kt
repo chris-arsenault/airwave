@@ -1,0 +1,92 @@
+package io.ahara.airwave.widget
+
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlin.math.max
+import kotlin.math.min
+
+data class AirwaveDevice(
+    val id: String,
+    val name: String,
+    val enabled: Boolean,
+    val volume: Double,
+)
+
+data class PlaybackState(val playing: Boolean)
+
+class AirwaveApi(private val baseUrl: String) {
+    fun devices(): List<AirwaveDevice> {
+        val json = JSONArray(request("GET", "/api/devices"))
+        return buildList {
+            for (i in 0 until json.length()) {
+                val item = json.getJSONObject(i)
+                if (item.optBoolean("enabled", true)) {
+                    add(
+                        AirwaveDevice(
+                            id = item.getString("id"),
+                            name = item.optString("name", item.getString("id")),
+                            enabled = true,
+                            volume = item.optDouble("volume", 0.0),
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun playback(deviceId: String): PlaybackState {
+        val json = JSONObject(request("GET", "/api/playback/${deviceId.urlPath()}"))
+        return PlaybackState(playing = json.optBoolean("playing", false))
+    }
+
+    fun pause(deviceId: String) {
+        request("POST", "/api/playback/${deviceId.urlPath()}/pause")
+    }
+
+    fun resume(deviceId: String) {
+        request("POST", "/api/playback/${deviceId.urlPath()}/resume")
+    }
+
+    fun next(deviceId: String) {
+        request("POST", "/api/playback/${deviceId.urlPath()}/next")
+    }
+
+    fun setVolume(deviceId: String, volume: Double) {
+        val clamped = max(0.0, min(1.0, volume))
+        request(
+            "POST",
+            "/api/devices/${deviceId.urlPath()}/volume",
+            JSONObject().put("volume", clamped).toString(),
+        )
+    }
+
+    private fun request(method: String, path: String, body: String? = null): String {
+        val url = URL(baseUrl.trimEnd('/') + path)
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 5_000
+            readTimeout = 8_000
+            setRequestProperty("Accept", "application/json")
+            if (body != null) {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+            }
+        }
+        if (body != null) {
+            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
+        }
+        val code = conn.responseCode
+        val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+        val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+        if (code !in 200..299) {
+            throw IllegalStateException("Airwave HTTP $code: ${text.take(160)}")
+        }
+        return text
+    }
+
+    private fun String.urlPath(): String =
+        java.net.URLEncoder.encode(this, "UTF-8").replace("+", "%20")
+}

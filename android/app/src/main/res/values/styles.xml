@@ -1,0 +1,22 @@
+<resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/widget_background</item>
+        <item name="android:navigationBarColor">@color/widget_background</item>
+        <item name="android:fontFamily">sans</item>
+    </style>
+
+    <style name="WidgetButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/widget_button</item>
+        <item name="android:padding">10dp</item>
+        <item name="android:scaleType">center</item>
+    </style>
+
+    <style name="WidgetPrimaryButton" parent="WidgetButton">
+        <item name="android:layout_weight">1.35</item>
+        <item name="android:background">@drawable/widget_button_primary</item>
+    </style>
+</resources>

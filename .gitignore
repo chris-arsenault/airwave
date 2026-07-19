@@ -4,6 +4,9 @@ target/
 # Node
 node_modules/
 frontend/dist/
+android/.gradle/
+android/build/
+android/app/build/
 
 # SQLite
 *.db
