@@ -11,6 +11,10 @@ images:
 android:
   dir: android
   ci_task: assembleDebug
+fdroid:
+  app_id: io.ahara.airwave
+  repo_name: Airwave Control
+  repo_description: Native Android widget releases for Airwave.
 rust_artifacts:
   binaries:
     - { bin: airwave-server, image: backend }

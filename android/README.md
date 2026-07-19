@@ -32,5 +32,5 @@ Release signing reads `ANDROID_SIGNING_STORE_FILE`,
 
 ## Distribution
 
-The shared Ahara CI workflow has a gated F-Droid publishing path, but Airwave
-does not opt into publishing until the repository-hosting IAM shape is finalized.
+CI publishes signed releases to the shared Ahara F-Droid repository. Add
+`https://fdroid.services.ahara.io/repo` in the F-Droid client.
