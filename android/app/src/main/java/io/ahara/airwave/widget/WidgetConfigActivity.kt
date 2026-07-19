@@ -13,8 +13,10 @@ class WidgetConfigActivity : Activity() {
         setContentView(R.layout.config_activity)
 
         val serverUrl = findViewById<EditText>(R.id.server_url)
+        val apiToken = findViewById<EditText>(R.id.api_token)
         val status = findViewById<TextView>(R.id.config_status)
         serverUrl.setText(AirwavePrefs.serverUrl(this))
+        apiToken.setText(AirwavePrefs.apiToken(this))
 
         findViewById<Button>(R.id.save_button).setOnClickListener {
             val value = serverUrl.text.toString().trim()
@@ -23,6 +25,7 @@ class WidgetConfigActivity : Activity() {
                 return@setOnClickListener
             }
             AirwavePrefs.setServerUrl(this, value)
+            AirwavePrefs.setApiToken(this, apiToken.text.toString())
             status.text = "Saved. Refreshing devices…"
             AirwaveWidgetProvider.refreshAsync(this)
             setResult(RESULT_OK)

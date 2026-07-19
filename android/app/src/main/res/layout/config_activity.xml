@@ -32,6 +32,17 @@
         android:textColor="@color/widget_text"
         android:textColorHint="@color/widget_text_secondary" />
 
+    <EditText
+        android:id="@+id/api_token"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Optional API token for public access"
+        android:inputType="textPassword"
+        android:singleLine="true"
+        android:textColor="@color/widget_text"
+        android:textColorHint="@color/widget_text_secondary" />
+
     <Button
         android:id="@+id/save_button"
         android:layout_width="match_parent"

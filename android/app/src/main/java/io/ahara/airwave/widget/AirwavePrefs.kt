@@ -5,6 +5,7 @@ import android.content.Context
 object AirwavePrefs {
     private const val PREFS = "airwave-control"
     private const val KEY_SERVER_URL = "server_url"
+    private const val KEY_API_TOKEN = "api_token"
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_DEVICE_NAME = "device_name"
     private const val KEY_PLAYING = "playing"
@@ -17,6 +18,17 @@ object AirwavePrefs {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_SERVER_URL, value.trim().trimEnd('/'))
+            .apply()
+    }
+
+    fun apiToken(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_API_TOKEN, "") ?: ""
+
+    fun setApiToken(context: Context, value: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_API_TOKEN, value.trim())
             .apply()
     }
 

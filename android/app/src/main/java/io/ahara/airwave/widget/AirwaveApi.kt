@@ -17,7 +17,10 @@ data class AirwaveDevice(
 
 data class PlaybackState(val playing: Boolean)
 
-class AirwaveApi(private val baseUrl: String) {
+class AirwaveApi(
+    private val baseUrl: String,
+    private val apiToken: String = "",
+) {
     fun devices(): List<AirwaveDevice> {
         val json = JSONArray(request("GET", "/api/devices"))
         return buildList {
@@ -70,6 +73,9 @@ class AirwaveApi(private val baseUrl: String) {
             connectTimeout = 5_000
             readTimeout = 8_000
             setRequestProperty("Accept", "application/json")
+            if (apiToken.isNotBlank()) {
+                setRequestProperty("Authorization", "Bearer $apiToken")
+            }
             if (body != null) {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
