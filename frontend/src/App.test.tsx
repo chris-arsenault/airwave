@@ -18,6 +18,15 @@ vi.mock("./api/client", () => ({
     getPresets: vi.fn(() => Promise.resolve({ presets: {} })),
     artUrl: vi.fn((id: string) => `/api/art/${id}`),
   },
+  setApiAuthToken: vi.fn(),
+}));
+
+// Signed-in auth so App renders the player, not the login gate.
+vi.mock("./hooks/useAuth", () => ({
+  useAuth: () => ({
+    auth: { status: "signedIn", token: "test-token", username: "tester" },
+    authActions: { signIn: vi.fn(), confirmMfa: vi.fn(), signOut: vi.fn() },
+  }),
 }));
 
 // Mock SSE

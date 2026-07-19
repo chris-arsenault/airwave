@@ -1,14 +1,29 @@
+import { config } from "../config";
+
 const BASE = "/api";
+let authToken = "";
+
+export function setApiAuthToken(token: string) {
+  authToken = token;
+}
+
+export function getApiAuthToken(): string {
+  return authToken;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const headers = new Headers(init?.headers);
+  headers.set("Content-Type", "application/json");
+  if (authToken) headers.set("Authorization", `Bearer ${authToken}`);
+  const res = await fetch(`${apiBase()}${path}`, { ...init, headers });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text);
+}
+
+export function apiBase(): string {
+  return config.apiBaseUrl ? `${config.apiBaseUrl.replace(/\/$/, "")}/api` : BASE;
 }
 
 export const api = {
@@ -175,7 +190,7 @@ export const api = {
   health: () => request<{ status: string }>("/health"),
 
   // Art (returns image URL, not a JSON request)
-  artUrl: (trackId: string) => `${BASE}/art/${trackId}`,
+  artUrl: (trackId: string) => `${apiBase()}/art/${trackId}`,
 };
 
 // Types

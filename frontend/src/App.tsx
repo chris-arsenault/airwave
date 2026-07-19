@@ -2,6 +2,9 @@ import { useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { api, type SessionInfo } from "./api/client";
+import { setApiAuthToken } from "./api/client";
+import { Login } from "./components/Login";
+import { useAuth } from "./hooks/useAuth";
 import { BottomNav } from "./components/layout/BottomNav";
 import { Sidebar } from "./components/layout/Sidebar";
 import { NowPlaying } from "./components/player/NowPlaying";
@@ -286,7 +289,23 @@ function XIcon() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <AppGate />
     </QueryClientProvider>
   );
+}
+
+function AppGate() {
+  const { auth, authActions } = useAuth();
+
+  useEffect(() => {
+    setApiAuthToken(auth.status === "signedIn" ? auth.token : "");
+  }, [auth.status, auth.token]);
+
+  if (auth.status === "loading") {
+    return <div className="login-screen">Loading…</div>;
+  }
+  if (auth.status !== "signedIn") {
+    return <Login auth={auth} authActions={authActions} />;
+  }
+  return <AppContent />;
 }

@@ -3,6 +3,7 @@ prefix: airwave
 stack:
   - rust
   - typescript
+  - terraform
   - android
 truenas: true
 images:
