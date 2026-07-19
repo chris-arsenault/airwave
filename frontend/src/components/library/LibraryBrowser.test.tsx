@@ -3,10 +3,12 @@ import { screen, waitFor, fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "../../test-utils";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { useDeviceStore } from "../../stores/deviceStore";
+import { LIBRARY_ROOT, useUiStore } from "../../stores/uiStore";
 
-const { mockBrowse, mockSearch } = vi.hoisted(() => ({
+const { mockBrowse, mockSearch, mockSessionPlay } = vi.hoisted(() => ({
   mockBrowse: vi.fn(),
   mockSearch: vi.fn(),
+  mockSessionPlay: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../../api/client", () => ({
@@ -14,12 +16,16 @@ vi.mock("../../api/client", () => ({
     browse: mockBrowse,
     search: mockSearch,
     play: vi.fn(() => Promise.resolve()),
+    sessionPlay: mockSessionPlay,
+    addToQueue: vi.fn(() => Promise.resolve()),
+    artUrl: vi.fn((id: string) => `/api/art/${id}`),
   },
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   useDeviceStore.setState({ devices: [], activeDeviceId: "dev-1" });
+  useUiStore.setState({ drawer: null, libraryPath: [LIBRARY_ROOT], libraryPathsByDevice: {} });
 });
 
 describe("LibraryBrowser rendering", () => {
@@ -167,6 +173,43 @@ describe("LibraryBrowser navigation", () => {
       expect(screen.getByText("Library")).toBeInTheDocument();
       // "Artists" appears both in breadcrumb — just check it exists
       expect(screen.getByText("Artists")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("LibraryBrowser playback", () => {
+  it("closes via callback after playing a track from the current library path", async () => {
+    const onPlay = vi.fn();
+    useUiStore.setState({
+      drawer: "library",
+      libraryPath: [LIBRARY_ROOT],
+      libraryPathsByDevice: { "dev-1": [LIBRARY_ROOT, { id: "1", title: "Artists" }] },
+    });
+    mockBrowse.mockResolvedValue({
+      items: [
+        {
+          type: "track",
+          id: "t1",
+          parent_id: "1",
+          title: "Wish You Were Here",
+          artist: "Pink Floyd",
+          album: "Wish You Were Here",
+          class: null,
+        },
+      ],
+      total: 1,
+    });
+
+    renderWithProviders(<LibraryBrowser onPlay={onPlay} />);
+    await waitFor(() => screen.getByText("Wish You Were Here"));
+    fireEvent.click(screen.getByText("Wish You Were Here"));
+
+    await waitFor(() => {
+      expect(mockSessionPlay).toHaveBeenCalledWith("dev-1", {
+        source_id: "1",
+        start_track_id: "t1",
+      });
+      expect(onPlay).toHaveBeenCalled();
     });
   });
 });

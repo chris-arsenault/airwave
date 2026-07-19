@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, type Device } from "../../api/client";
+import { volumePercent } from "../../hooks/useDeviceVolume";
 import { useDeviceStore } from "../../stores/deviceStore";
 
 interface SpeakerCardProps {
@@ -10,7 +11,8 @@ interface SpeakerCardProps {
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onSelect: () => void;
-  onVolumeChange: (value: number) => void;
+  onVolumeDown: () => void;
+  onVolumeUp: () => void;
   onMuteToggle: () => void;
   onToggleEnabled: () => void;
 }
@@ -24,11 +26,12 @@ export function SpeakerCard(props: SpeakerCardProps) {
     onDragStart,
     onDragEnd,
     onSelect,
-    onVolumeChange,
+    onVolumeDown,
+    onVolumeUp,
     onMuteToggle,
     onToggleEnabled,
   } = props;
-  const volumePercent = Math.round(device.volume * 100);
+  const percent = volumePercent(device);
   const updateDevice = useDeviceStore((s) => s.updateDevice);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(device.name);
@@ -77,8 +80,9 @@ export function SpeakerCard(props: SpeakerCardProps) {
       />
       <VolumeControl
         device={device}
-        volumePercent={volumePercent}
-        onVolumeChange={onVolumeChange}
+        volumePercent={percent}
+        onVolumeDown={onVolumeDown}
+        onVolumeUp={onVolumeUp}
         onMuteToggle={onMuteToggle}
       />
       <ChannelSelector device={device} onChannelChange={handleChannelChange} />
@@ -98,12 +102,14 @@ function speakerCardClass(isDragging: boolean, enabled: boolean, isActive: boole
 function VolumeControl({
   device,
   volumePercent,
-  onVolumeChange,
+  onVolumeDown,
+  onVolumeUp,
   onMuteToggle,
 }: {
   device: Device;
   volumePercent: number;
-  onVolumeChange: (value: number) => void;
+  onVolumeDown: () => void;
+  onVolumeUp: () => void;
   onMuteToggle: () => void;
 }) {
   if (!device.enabled || !device.capabilities.rendering_control) return null;
@@ -111,7 +117,7 @@ function VolumeControl({
     /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */
     <fieldset
       aria-label="Volume controls"
-      className="flex items-center gap-1.5 mt-1 border-0 p-0 m-0"
+      className="flex items-center gap-1.5 mt-2 border-0 p-0 m-0"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
@@ -121,17 +127,25 @@ function VolumeControl({
       >
         {device.muted ? <VolumeMutedIcon /> : <VolumeIcon />}
       </button>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={volumePercent}
-        onChange={(e) => onVolumeChange(parseInt(e.target.value))}
-        className="flex-1 h-1 accent-[var(--color-accent)] bg-white/10 rounded-full appearance-none cursor-pointer"
-      />
-      <span className="text-[11px] text-[var(--color-text-secondary)] w-6 text-right shrink-0">
+      <button
+        onClick={onVolumeDown}
+        className="w-7 h-7 rounded-full bg-white/10 text-white/80 text-lg leading-none hover:bg-white/15 active:scale-95"
+        aria-label={`Volume down ${device.name}`}
+        title="Volume down"
+      >
+        −
+      </button>
+      <span className="text-[12px] tabular-nums text-[var(--color-text-secondary)] w-7 text-center shrink-0">
         {volumePercent}
       </span>
+      <button
+        onClick={onVolumeUp}
+        className="w-7 h-7 rounded-full bg-white/10 text-white/80 text-lg leading-none hover:bg-white/15 active:scale-95"
+        aria-label={`Volume up ${device.name}`}
+        title="Volume up"
+      >
+        +
+      </button>
     </fieldset>
   );
 }

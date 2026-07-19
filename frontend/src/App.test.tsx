@@ -4,6 +4,7 @@ import { renderWithProviders } from "./test-utils";
 import App from "./App";
 import { useDeviceStore } from "./stores/deviceStore";
 import { usePlayerStore } from "./stores/playerStore";
+import { LIBRARY_ROOT, useUiStore } from "./stores/uiStore";
 
 // Mock api
 vi.mock("./api/client", () => ({
@@ -43,6 +44,7 @@ describe("App", () => {
   beforeEach(() => {
     useDeviceStore.setState({ devices: [], activeDeviceId: null });
     usePlayerStore.setState({ playing: false, currentTrack: null, session: null });
+    useUiStore.setState({ drawer: null, libraryPath: [LIBRARY_ROOT], libraryPathsByDevice: {} });
   });
 
   it("shows player as main view", () => {

@@ -128,10 +128,12 @@ export function ItemList({
   items,
   onSelect,
   containerId,
+  onPlay,
 }: {
   items: LibraryItem[];
   onSelect: (item: LibraryItem) => void;
   containerId: string;
+  onPlay?: () => void;
 }) {
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId);
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack);
@@ -150,6 +152,7 @@ export function ItemList({
       stream_url: item.stream_url ?? null,
     });
     setPlaying(true);
+    onPlay?.();
   };
 
   const handleAddToQueue = async (item: LibraryItem) => {
@@ -161,6 +164,7 @@ export function ItemList({
     if (!activeDeviceId) return;
     await api.sessionPlay(activeDeviceId, { source_id: item.id });
     setPlaying(true);
+    onPlay?.();
   };
 
   return (

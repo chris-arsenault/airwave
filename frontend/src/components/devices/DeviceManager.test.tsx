@@ -84,7 +84,7 @@ describe("DeviceManager rendering", () => {
     expect(screen.getByText("Group")).toBeInTheDocument();
   });
 
-  it("renders volume slider with correct percentage", () => {
+  it("renders volume buttons with correct percentage", () => {
     useDeviceStore.setState({
       devices: [makeDevice({ id: "a", volume: 0.75 })],
       activeDeviceId: "a",
@@ -124,15 +124,14 @@ describe("DeviceManager interactions", () => {
     expect(screen.getByText("UPnP")).toBeInTheDocument();
   });
 
-  it("calls setVolume on slider change", async () => {
+  it("calls setVolume on plus button click", async () => {
     const { api } = vi.mocked(await import("../../api/client"));
     useDeviceStore.setState({
       devices: [makeDevice({ id: "a", volume: 0.5 })],
       activeDeviceId: "a",
     });
     render(<DeviceManager />);
-    const slider = screen.getByRole("slider");
-    fireEvent.change(slider, { target: { value: "80" } });
-    expect(api.setVolume).toHaveBeenCalledWith("a", 0.8);
+    fireEvent.click(screen.getByRole("button", { name: "Volume up Living Room" }));
+    expect(api.setVolume).toHaveBeenCalledWith("a", 0.55);
   });
 });

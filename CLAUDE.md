@@ -51,7 +51,9 @@ make ci
 - **CI**: Shared reusable workflow (`chris-arsenault/ahara/.github/workflows/ci.yml@main`)
 - **Deploy**: TrueNAS via Komodo (`truenas: true` in `platform.yml`)
 - **Project registration**: `ahara-control/infrastructure/terraform/project-airwave.tf`
-- **No database** (uses local SQLite), **no Cognito** (LAN appliance), **no ALB** (host networking)
+- **No external database** (uses local SQLite). Runtime still uses host networking
+  for SSDP; public access is via the shared `services.ahara.io` reverse proxy
+  with Cognito auth at the edge.
 
 ## Architecture
 
@@ -84,7 +86,9 @@ make ci
 - Multiroom grouping uses HTTPS API, NOT SOAP (see `backend/docs/WIIM-PROTOCOL.md`)
 - Device state is canonical — always read from device, never persist-and-restore group state
 - Music volume mounted read-write when metadata editing is enabled
-- No auth — this is a home network appliance
+- Public UI/API access is protected by the shared ALB Cognito rule. Keep DLNA,
+  SOAP, and media streaming compatible with LAN devices; do not put Cognito in
+  the backend request path that WiiM devices use.
 
 ## Style
 

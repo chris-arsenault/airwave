@@ -6,9 +6,10 @@ import { usePlayerStore } from "../../stores/playerStore";
 import { useDeviceStore } from "../../stores/deviceStore";
 import type { Device } from "../../api/client";
 
-const { mockPause, mockResume } = vi.hoisted(() => ({
+const { mockPause, mockResume, mockSetVolume } = vi.hoisted(() => ({
   mockPause: vi.fn(() => Promise.resolve()),
   mockResume: vi.fn(() => Promise.resolve()),
+  mockSetVolume: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../../api/client", () => ({
@@ -20,7 +21,7 @@ vi.mock("../../api/client", () => ({
     seek: vi.fn(() => Promise.resolve()),
     seekForward: vi.fn(() => Promise.resolve()),
     seekBackward: vi.fn(() => Promise.resolve()),
-    setVolume: vi.fn(() => Promise.resolve()),
+    setVolume: mockSetVolume,
     setShuffle: vi.fn(() => Promise.resolve()),
     setRepeat: vi.fn(() => Promise.resolve()),
     rateTrack: vi.fn(() => Promise.resolve()),
@@ -95,6 +96,13 @@ describe("NowPlaying", () => {
     expect(screen.getByText("Living Room")).toBeInTheDocument();
   });
 
+  it("shows active device volume slider", () => {
+    renderWithProviders(<NowPlaying />);
+    expect(
+      screen.getByRole<HTMLInputElement>("slider", { name: "Volume for Living Room" }).value
+    ).toBe("50");
+  });
+
   it("shows formatted time", () => {
     renderWithProviders(<NowPlaying />);
     expect(screen.getByText("1:00")).toBeInTheDocument(); // 60s
@@ -121,5 +129,13 @@ describe("NowPlaying", () => {
     const bigButton = document.querySelector("button.w-16")!;
     fireEvent.click(bigButton);
     expect(mockPause).toHaveBeenCalledWith("dev-1");
+  });
+
+  it("sets active device volume from the main slider", () => {
+    renderWithProviders(<NowPlaying />);
+    fireEvent.change(screen.getByRole("slider", { name: "Volume for Living Room" }), {
+      target: { value: "65" },
+    });
+    expect(mockSetVolume).toHaveBeenCalledWith("dev-1", 0.65);
   });
 });

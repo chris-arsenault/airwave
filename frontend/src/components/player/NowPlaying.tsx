@@ -3,8 +3,10 @@ import { api } from "../../api/client";
 import { usePlayerStore } from "../../stores/playerStore";
 import { useDeviceStore } from "../../stores/deviceStore";
 import { useArtColor } from "../../hooks/useArtColor";
-import { useMediaSessionDebug } from "../../hooks/useMediaSession";
 import { DevicePill } from "../layout/DevicePill";
+import { DebugOverlay } from "./NowPlayingDebug";
+import { PlayerVolume } from "./PlayerVolume";
+import { StarRating } from "./StarRating";
 import { useSleepTimerSync, formatTime, NowPlayingArt } from "./NowPlayingHelpers";
 import {
   PlayIcon,
@@ -41,6 +43,7 @@ export function NowPlaying() {
       <NowPlayingArtSection />
       <TrackInfoSection />
       <SeekBarSection />
+      <PlayerVolume />
       <TransportControls />
       <div className="pb-20 md:pb-2 shrink-0" />
     </NowPlayingLayout>
@@ -59,31 +62,6 @@ function NowPlayingLayout({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </div>
-  );
-}
-
-function DebugOverlay() {
-  const debugLogs = useMediaSessionDebug();
-  const [showDebug, setShowDebug] = useState(false);
-
-  return (
-    <div className="shrink-0">
-      <button
-        onClick={() => setShowDebug(!showDebug)}
-        className="w-full text-[10px] text-white/30 py-0.5 text-center"
-      >
-        {showDebug ? "hide debug" : `media session debug (${debugLogs.length})`}
-      </button>
-      {showDebug && (
-        <div className="bg-black/80 text-[10px] font-mono text-green-400 px-3 py-2 max-h-48 overflow-y-auto">
-          {debugLogs.length === 0 ? (
-            <div className="text-white/30">no logs yet</div>
-          ) : (
-            debugLogs.map((line, i) => <div key={i}>{line}</div>)
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -222,22 +200,6 @@ function TrackInfoSection() {
           : "Select a track to play"}
       </div>
       {currentTrack && <StarRating rating={rating} onRate={handleRate} />}
-    </div>
-  );
-}
-
-function StarRating({ rating, onRate }: { rating: number; onRate: (stars: number) => void }) {
-  return (
-    <div className="flex items-center justify-center gap-1 mt-2">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          onClick={() => onRate(star)}
-          className={`text-lg ${star <= rating ? "text-yellow-400" : "text-white/20"} hover:text-yellow-300 transition-colors`}
-        >
-          {star <= rating ? "\u2605" : "\u2606"}
-        </button>
-      ))}
     </div>
   );
 }

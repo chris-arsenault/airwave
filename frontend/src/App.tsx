@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { api, type SessionInfo } from "./api/client";
@@ -11,6 +11,7 @@ import { DeviceManager } from "./components/devices/DeviceManager";
 import { EQSettings } from "./components/devices/EQSettings";
 import { useDeviceStore } from "./stores/deviceStore";
 import { usePlayerStore } from "./stores/playerStore";
+import { useUiStore } from "./stores/uiStore";
 import { useSSE } from "./hooks/useSSE";
 import { useMediaSession } from "./hooks/useMediaSession";
 
@@ -23,10 +24,10 @@ const DRAWER_TITLES: Record<string, string> = {
   settings: "EQ",
 };
 
-function DrawerContent({ drawer }: { drawer: string }) {
+function DrawerContent({ drawer, onClose }: { drawer: string; onClose: () => void }) {
   return (
     <>
-      {drawer === "library" && <LibraryBrowser />}
+      {drawer === "library" && <LibraryBrowser onPlay={onClose} />}
       {drawer === "queue" && <QueueView />}
       {drawer === "devices" && <DeviceManager />}
       {drawer === "settings" && <EQSettings />}
@@ -35,8 +36,9 @@ function DrawerContent({ drawer }: { drawer: string }) {
 }
 
 function AppContent() {
-  const [drawer, setDrawer] = useState<string | null>(null);
-  const toggleDrawer = (id: string) => setDrawer((d) => (d === id ? null : id));
+  const drawer = useUiStore((s) => s.drawer);
+  const setDrawer = useUiStore((s) => s.setDrawer);
+  const toggleDrawer = useUiStore((s) => s.toggleDrawer);
 
   useMediaSession();
   useInitialDeviceFetch();
@@ -222,7 +224,7 @@ function DesktopDrawer({ drawer, onClose }: { drawer: string | null; onClose: ()
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        <DrawerContent drawer={drawer} />
+        <DrawerContent drawer={drawer} onClose={onClose} />
       </div>
     </div>
   );
@@ -255,7 +257,7 @@ function MobileDrawer({ drawer, onClose }: { drawer: string | null; onClose: () 
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 pb-4">
-              <DrawerContent drawer={drawer} />
+              <DrawerContent drawer={drawer} onClose={onClose} />
             </div>
           </div>
         </motion.div>

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { api, type Device, type GroupDefinition } from "../../api/client";
+import { VOLUME_STEP, useDeviceVolumeActions } from "../../hooks/useDeviceVolume";
 import { useDeviceStore } from "../../stores/deviceStore";
 import { SpeakerCard } from "./SpeakerCard";
 import { GroupIcon, UnlinkIcon, PresetButton } from "./DeviceManagerIcons";
@@ -10,14 +11,13 @@ interface GroupPreset {
 
 function useDeviceActions() {
   const updateDevice = useDeviceStore((s) => s.updateDevice);
+  const { adjustVolume } = useDeviceVolumeActions();
 
-  const handleVolumeChange = useCallback(
-    async (device: Device, value: number) => {
-      const volume = value / 100;
-      updateDevice(device.id, { volume });
-      await api.setVolume(device.id, volume);
+  const handleVolumeStep = useCallback(
+    async (device: Device, direction: -1 | 1) => {
+      await adjustVolume(device, direction * VOLUME_STEP);
     },
-    [updateDevice]
+    [adjustVolume]
   );
 
   const handleMuteToggle = useCallback(
@@ -37,7 +37,7 @@ function useDeviceActions() {
     [updateDevice]
   );
 
-  return { handleVolumeChange, handleMuteToggle, handleToggleEnabled };
+  return { handleVolumeStep, handleMuteToggle, handleToggleEnabled };
 }
 
 export function DeviceManager() {
@@ -53,7 +53,7 @@ export function DeviceManager() {
   const { groups, ungroupedDevices } = useGroupZones(devices);
   const removeFromCurrentGroup = useRemoveFromGroup(devices);
   const handleDrop = useDrop(dragId, devices, removeFromCurrentGroup, setDragOver, setDragId);
-  const { handleVolumeChange, handleMuteToggle, handleToggleEnabled } = useDeviceActions();
+  const { handleVolumeStep, handleMuteToggle, handleToggleEnabled } = useDeviceActions();
 
   const handlePresetClick = useCallback(
     async (slot: number) => {
@@ -84,7 +84,7 @@ export function DeviceManager() {
     setDragOver,
     setActiveDevice,
     handleDrop,
-    handleVolumeChange,
+    handleVolumeStep,
     handleMuteToggle,
     handleToggleEnabled,
   };
@@ -301,7 +301,7 @@ interface SpeakerListProps {
   setDragOver: (id: string | null) => void;
   setActiveDevice: (id: string) => void;
   handleDrop: (zone: string) => void;
-  handleVolumeChange: (device: Device, value: number) => void;
+  handleVolumeStep: (device: Device, direction: -1 | 1) => void;
   handleMuteToggle: (device: Device) => void;
   handleToggleEnabled: (device: Device) => void;
 }
@@ -348,7 +348,8 @@ function GroupList({ groups, ...props }: SpeakerListProps & { groups: GroupZone[
                     props.setDragOver(null);
                   }}
                   onSelect={() => d.enabled && props.setActiveDevice(group.id)}
-                  onVolumeChange={(v) => props.handleVolumeChange(d, v)}
+                  onVolumeDown={() => props.handleVolumeStep(d, -1)}
+                  onVolumeUp={() => props.handleVolumeStep(d, 1)}
                   onMuteToggle={() => props.handleMuteToggle(d)}
                   onToggleEnabled={() => props.handleToggleEnabled(d)}
                 />
@@ -393,7 +394,8 @@ function UngroupedList(props: SpeakerListProps) {
               props.setDragOver(null);
             }}
             onSelect={() => d.enabled && props.setActiveDevice(d.id)}
-            onVolumeChange={(v) => props.handleVolumeChange(d, v)}
+            onVolumeDown={() => props.handleVolumeStep(d, -1)}
+            onVolumeUp={() => props.handleVolumeStep(d, 1)}
             onMuteToggle={() => props.handleMuteToggle(d)}
             onToggleEnabled={() => props.handleToggleEnabled(d)}
           />

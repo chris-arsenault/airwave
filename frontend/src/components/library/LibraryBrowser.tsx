@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type LibraryItem, type ContainerInfo } from "../../api/client";
 import { useDeviceStore } from "../../stores/deviceStore";
 import { usePlayerStore } from "../../stores/playerStore";
+import { LIBRARY_ROOT, useUiStore, type BreadcrumbEntry } from "../../stores/uiStore";
 import { BulkAlbumArtistDialog, RenameArtistDialog } from "./TrackEditor";
 import { ItemList } from "./LibraryItemList";
 import { SearchIcon, XIcon, ChevronLeftIcon, PlayIcon, EditIcon } from "./LibraryIcons";
@@ -14,11 +15,6 @@ const CATEGORY_ICONS: Record<string, string> = {
   Genres: "\uD83C\uDFB5",
   "All Tracks": "\u266B",
 };
-
-interface BreadcrumbEntry {
-  id: string;
-  title: string;
-}
 
 function SearchBar({ query, onChange }: { query: string; onChange: (value: string) => void }) {
   return (
@@ -96,17 +92,23 @@ function useLibraryData(currentId: string, searching: boolean, searchQuery: stri
   return { containerInfo, items, isLoading };
 }
 
-export function LibraryBrowser() {
-  const [path, setPath] = useState<BreadcrumbEntry[]>([{ id: "0", title: "Library" }]);
+export function LibraryBrowser({ onPlay }: { onPlay?: () => void }) {
+  const activeDeviceId = useDeviceStore((s) => s.activeDeviceId);
+  const path = useUiStore(
+    (s) =>
+      (activeDeviceId ? s.libraryPathsByDevice[activeDeviceId] : s.libraryPath) ?? s.libraryPath
+  );
+  const setPath = useUiStore((s) => s.setLibraryPath);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
 
-  const currentId = path[path.length - 1].id;
+  const currentPath = path.length ? path : [LIBRARY_ROOT];
+  const currentId = currentPath[currentPath.length - 1].id;
   const { containerInfo, items, isLoading } = useLibraryData(currentId, searching, searchQuery);
 
   const navigateTo = (item: LibraryItem) => {
     if (item.type !== "container") return;
-    setPath([...path, { id: item.id, title: item.title ?? "Unknown" }]);
+    setPath([...currentPath, { id: item.id, title: item.title ?? "Unknown" }], activeDeviceId);
     setSearching(false);
     setSearchQuery("");
   };
@@ -116,7 +118,7 @@ export function LibraryBrowser() {
     setSearching(value.length > 0);
   };
 
-  const showBreadcrumbs = !searching && path.length > 1;
+  const showBreadcrumbs = !searching && currentPath.length > 1;
   const showHeader = !searching && containerInfo && (containerInfo.artist || containerInfo.album);
 
   return (
@@ -124,16 +126,16 @@ export function LibraryBrowser() {
       <SearchBar query={searchQuery} onChange={handleSearchChange} />
       {showBreadcrumbs && (
         <Breadcrumbs
-          path={path}
-          onBack={() => setPath(path.slice(0, -1))}
+          path={currentPath}
+          onBack={() => setPath(currentPath.slice(0, -1), activeDeviceId)}
           onNavigate={(i) => {
-            setPath(path.slice(0, i + 1));
+            setPath(currentPath.slice(0, i + 1), activeDeviceId);
             setSearching(false);
             setSearchQuery("");
           }}
         />
       )}
-      {showHeader && <ContainerHeader info={containerInfo} />}
+      {showHeader && <ContainerHeader info={containerInfo} onPlay={onPlay} />}
       <LibraryContent
         isLoading={isLoading}
         items={items}
@@ -141,6 +143,7 @@ export function LibraryBrowser() {
         isRoot={currentId === "0"}
         containerId={currentId}
         onSelect={navigateTo}
+        onPlay={onPlay}
       />
     </div>
   );
@@ -218,7 +221,7 @@ function ContainerHeaderActions({
   );
 }
 
-function ContainerHeader({ info }: { info: ContainerInfo }) {
+function ContainerHeader({ info, onPlay }: { info: ContainerInfo; onPlay?: () => void }) {
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId);
   const setPlaying = usePlayerStore((s) => s.setPlaying);
   const [showAlbumArtist, setShowAlbumArtist] = useState(false);
@@ -231,6 +234,7 @@ function ContainerHeader({ info }: { info: ContainerInfo }) {
     if (!activeDeviceId) return;
     await api.sessionPlay(activeDeviceId, { source_id: info.id });
     setPlaying(true);
+    onPlay?.();
   };
 
   return (
@@ -269,6 +273,7 @@ function LibraryContent({
   isRoot,
   containerId,
   onSelect,
+  onPlay,
 }: {
   isLoading: boolean;
   items: LibraryItem[] | undefined;
@@ -276,6 +281,7 @@ function LibraryContent({
   isRoot: boolean;
   containerId: string;
   onSelect: (item: LibraryItem) => void;
+  onPlay?: () => void;
 }) {
   if (isLoading) {
     return (
@@ -292,7 +298,7 @@ function LibraryContent({
   if (isRoot && !searching) {
     return <CategoryGrid items={items} onSelect={onSelect} />;
   }
-  return <ItemList items={items} onSelect={onSelect} containerId={containerId} />;
+  return <ItemList items={items} onSelect={onSelect} containerId={containerId} onPlay={onPlay} />;
 }
 
 function CategoryGrid({
