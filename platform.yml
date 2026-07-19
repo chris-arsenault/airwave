@@ -12,9 +12,12 @@ android:
   dir: android
   ci_task: assembleDebug
 fdroid:
+  hostname: fdroid.services.ahara.io
   app_id: io.ahara.airwave
   repo_name: Airwave Control
   repo_description: Native Android widget releases for Airwave.
+  apk_glob: app/build/outputs/apk/release/*.apk
+  metadata_path: fdroid/metadata/io.ahara.airwave.yml
 rust_artifacts:
   binaries:
     - { bin: airwave-server, image: backend }
