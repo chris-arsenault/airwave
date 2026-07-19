@@ -9,6 +9,8 @@ object AirwavePrefs {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_DEVICE_NAME = "device_name"
     private const val KEY_PLAYING = "playing"
+    private const val KEY_NOW_TITLE = "now_title"
+    private const val KEY_NOW_SUBTITLE = "now_subtitle"
 
     fun serverUrl(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -56,6 +58,22 @@ object AirwavePrefs {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_PLAYING, value)
+            .apply()
+    }
+
+    fun nowTitle(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_NOW_TITLE, "") ?: ""
+
+    fun nowSubtitle(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_NOW_SUBTITLE, "") ?: ""
+
+    fun setNowPlaying(context: Context, title: String, subtitle: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_NOW_TITLE, title)
+            .putString(KEY_NOW_SUBTITLE, subtitle)
             .apply()
     }
 }

@@ -12,9 +12,9 @@ Player controls only — no library browsing, no voice.
 
 ## Configuration
 
-Launch the app once and set the Airwave server URL (for example the LAN URL of
-your TrueNAS host, `http://192.168.66.3:7880`). The widget calls the same
-`/api` endpoints the web UI uses, so point it at a reachable Airwave instance.
+Launch the app once and set the Airwave server URL (the LAN address or public
+hostname of your Airwave server). The widget calls the same `/api` endpoints the
+web UI uses, so point it at a reachable Airwave instance.
 
 If using a public Airwave API endpoint, enter its API bearer token in the token
 field. The Cognito-protected web UI host is not suitable for widgets because

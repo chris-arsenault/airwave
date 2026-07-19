@@ -75,7 +75,7 @@ GET https://{master_ip}/httpapi.asp?command=multiroom:SlaveKickout:{slave_ip}
 GET https://{master_ip}/httpapi.asp?command=multiroom:getSlaveList
 → { "slaves": 1, "wmrm_version": "4.2", "slave_list": [
     { "name": "WiiM - Gym", "uuid": "FF9700164482267319D4D9E8",
-      "ip": "192.168.66.221", "version": "4.2", ... }
+      "ip": "192.0.2.21", "version": "4.2", ... }
   ]}
 ```
 

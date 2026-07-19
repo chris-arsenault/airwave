@@ -90,12 +90,26 @@ class AirwaveWidgetProvider : AppWidgetProvider() {
             val status = if (selected != null) {
                 val state = runCatching { api.playback(selected.id) }.getOrNull()
                 AirwavePrefs.setPlaying(context, state?.playing == true)
+                AirwavePrefs.setNowPlaying(
+                    context,
+                    state?.title ?: "Nothing playing",
+                    playbackSubtitle(state, selected),
+                )
                 val stateText = if (state?.playing == true) "Playing" else "Paused"
                 "$stateText • vol ${Math.round(selected.volume * 100)}"
             } else {
+                AirwavePrefs.setNowPlaying(context, "No device selected", "No enabled devices")
                 "No enabled devices"
             }
             updateAll(context, status)
+        }
+
+        private fun playbackSubtitle(state: PlaybackState?, device: AirwaveDevice): String {
+            if (state?.title == null) return "Tap ${device.name} to cycle devices"
+            return listOfNotNull(state.artist, state.album ?: state.source)
+                .takeIf { it.isNotEmpty() }
+                ?.joinToString(" • ")
+                ?: device.name
         }
 
         private fun cycleDevice(context: Context, api: AirwaveApi) {
@@ -151,14 +165,16 @@ class AirwaveWidgetProvider : AppWidgetProvider() {
             status: String?,
         ) {
             val views = RemoteViews(context.packageName, R.layout.airwave_widget)
-            views.setTextViewText(R.id.status_text, status ?: "Ready")
+            val subtitle = AirwavePrefs.nowSubtitle(context).ifBlank { status ?: "Ready" }
+            views.setTextViewText(R.id.now_title, AirwavePrefs.nowTitle(context).ifBlank { "Airwave" })
+            views.setTextViewText(R.id.now_subtitle, subtitle)
             setDeviceText(context, views)
             views.setImageViewResource(
                 R.id.play_pause,
                 if (AirwavePrefs.playing(context)) R.drawable.ic_pause else R.drawable.ic_play,
             )
             views.setOnClickPendingIntent(R.id.device_name, pendingIntent(context, ACTION_CYCLE_DEVICE))
-            views.setOnClickPendingIntent(R.id.status_text, pendingIntent(context, ACTION_CYCLE_DEVICE))
+            views.setOnClickPendingIntent(R.id.now_subtitle, pendingIntent(context, ACTION_CYCLE_DEVICE))
             views.setOnClickPendingIntent(R.id.volume_down, pendingIntent(context, ACTION_VOLUME_DOWN))
             views.setOnClickPendingIntent(R.id.play_pause, pendingIntent(context, ACTION_PLAY_PAUSE))
             views.setOnClickPendingIntent(R.id.next, pendingIntent(context, ACTION_NEXT))

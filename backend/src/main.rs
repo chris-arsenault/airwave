@@ -134,6 +134,10 @@ async fn main() {
         // Devices
         .route("/devices", get(control::devices::list_devices))
         .route("/devices/{id}", get(control::devices::get_device))
+        .route(
+            "/devices/{id}/library-state",
+            get(control::devices::get_library_state).post(control::devices::set_library_state),
+        )
         .route("/devices/{id}/volume", post(control::devices::set_volume))
         .route("/devices/{id}/mute", post(control::devices::toggle_mute))
         .route("/devices/{id}/enabled", post(control::devices::set_enabled))

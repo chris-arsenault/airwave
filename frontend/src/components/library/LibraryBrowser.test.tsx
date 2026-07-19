@@ -3,13 +3,16 @@ import { screen, waitFor, fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "../../test-utils";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { useDeviceStore } from "../../stores/deviceStore";
-import { LIBRARY_ROOT, useUiStore } from "../../stores/uiStore";
+import { useUiStore } from "../../stores/uiStore";
 
-const { mockBrowse, mockSearch, mockSessionPlay } = vi.hoisted(() => ({
-  mockBrowse: vi.fn(),
-  mockSearch: vi.fn(),
-  mockSessionPlay: vi.fn(() => Promise.resolve()),
-}));
+const { mockBrowse, mockSearch, mockSessionPlay, mockGetLibraryState, mockSetLibraryState } =
+  vi.hoisted(() => ({
+    mockBrowse: vi.fn(),
+    mockSearch: vi.fn(),
+    mockSessionPlay: vi.fn(() => Promise.resolve()),
+    mockGetLibraryState: vi.fn(() => Promise.resolve({ path: [{ id: "0", title: "Library" }] })),
+    mockSetLibraryState: vi.fn(() => Promise.resolve()),
+  }));
 
 vi.mock("../../api/client", () => ({
   api: {
@@ -19,13 +22,16 @@ vi.mock("../../api/client", () => ({
     sessionPlay: mockSessionPlay,
     addToQueue: vi.fn(() => Promise.resolve()),
     artUrl: vi.fn((id: string) => `/api/art/${id}`),
+    getLibraryState: mockGetLibraryState,
+    setLibraryState: mockSetLibraryState,
   },
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetLibraryState.mockResolvedValue({ path: [{ id: "0", title: "Library" }] });
   useDeviceStore.setState({ devices: [], activeDeviceId: "dev-1" });
-  useUiStore.setState({ drawer: null, libraryPath: [LIBRARY_ROOT], libraryPathsByDevice: {} });
+  useUiStore.setState({ drawer: null });
 });
 
 describe("LibraryBrowser rendering", () => {
@@ -180,10 +186,12 @@ describe("LibraryBrowser navigation", () => {
 describe("LibraryBrowser playback", () => {
   it("closes via callback after playing a track from the current library path", async () => {
     const onPlay = vi.fn();
-    useUiStore.setState({
-      drawer: "library",
-      libraryPath: [LIBRARY_ROOT],
-      libraryPathsByDevice: { "dev-1": [LIBRARY_ROOT, { id: "1", title: "Artists" }] },
+    useUiStore.setState({ drawer: "library" });
+    mockGetLibraryState.mockResolvedValue({
+      path: [
+        { id: "0", title: "Library" },
+        { id: "1", title: "Artists" },
+      ],
     });
     mockBrowse.mockResolvedValue({
       items: [

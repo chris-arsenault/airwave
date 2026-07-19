@@ -31,3 +31,4 @@ android/app/build/
 
 # Serena
 .serena/
+backend/target-clippy/

@@ -177,6 +177,22 @@ pub struct DeviceNameRequest {
     pub name: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryPathEntry {
+    pub id: String,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryStateRequest {
+    pub path: Vec<LibraryPathEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryStateResponse {
+    pub path: Vec<LibraryPathEntry>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ChannelRequest {
     pub channel: String,

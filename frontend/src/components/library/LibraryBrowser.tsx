@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type LibraryItem, type ContainerInfo } from "../../api/client";
 import { useDeviceStore } from "../../stores/deviceStore";
 import { usePlayerStore } from "../../stores/playerStore";
-import { LIBRARY_ROOT, useUiStore, type BreadcrumbEntry } from "../../stores/uiStore";
+import { LIBRARY_ROOT, type BreadcrumbEntry } from "../../stores/uiStore";
 import { BulkAlbumArtistDialog, RenameArtistDialog } from "./TrackEditor";
 import { ItemList } from "./LibraryItemList";
 import { SearchIcon, XIcon, ChevronLeftIcon, PlayIcon, EditIcon } from "./LibraryIcons";
@@ -94,21 +94,37 @@ function useLibraryData(currentId: string, searching: boolean, searchQuery: stri
 
 export function LibraryBrowser({ onPlay }: { onPlay?: () => void }) {
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId);
-  const path = useUiStore(
-    (s) =>
-      (activeDeviceId ? s.libraryPathsByDevice[activeDeviceId] : s.libraryPath) ?? s.libraryPath
-  );
-  const setPath = useUiStore((s) => s.setLibraryPath);
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const libraryState = useQuery({
+    queryKey: ["library-state", activeDeviceId],
+    queryFn: async () => {
+      if (!activeDeviceId) return { path: [LIBRARY_ROOT] };
+      return api.getLibraryState(activeDeviceId);
+    },
+  });
+  const saveLibraryState = useMutation({
+    mutationFn: async (nextPath: BreadcrumbEntry[]) => {
+      if (!activeDeviceId) return;
+      await api.setLibraryState(activeDeviceId, nextPath);
+    },
+  });
 
+  const path = libraryState.data?.path ?? [LIBRARY_ROOT];
   const currentPath = path.length ? path : [LIBRARY_ROOT];
   const currentId = currentPath[currentPath.length - 1].id;
   const { containerInfo, items, isLoading } = useLibraryData(currentId, searching, searchQuery);
 
+  const setPath = (nextPath: BreadcrumbEntry[]) => {
+    const normalized = nextPath.length ? nextPath : [LIBRARY_ROOT];
+    queryClient.setQueryData(["library-state", activeDeviceId], { path: normalized });
+    saveLibraryState.mutate(normalized);
+  };
+
   const navigateTo = (item: LibraryItem) => {
     if (item.type !== "container") return;
-    setPath([...currentPath, { id: item.id, title: item.title ?? "Unknown" }], activeDeviceId);
+    setPath([...currentPath, { id: item.id, title: item.title ?? "Unknown" }]);
     setSearching(false);
     setSearchQuery("");
   };
@@ -127,9 +143,9 @@ export function LibraryBrowser({ onPlay }: { onPlay?: () => void }) {
       {showBreadcrumbs && (
         <Breadcrumbs
           path={currentPath}
-          onBack={() => setPath(currentPath.slice(0, -1), activeDeviceId)}
+          onBack={() => setPath(currentPath.slice(0, -1))}
           onNavigate={(i) => {
-            setPath(currentPath.slice(0, i + 1), activeDeviceId);
+            setPath(currentPath.slice(0, i + 1));
             setSearching(false);
             setSearchQuery("");
           }}

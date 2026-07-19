@@ -22,6 +22,12 @@ export const api = {
     request("/devices/" + id + "/enabled", { method: "POST", body: JSON.stringify({ enabled }) }),
   renameDevice: (id: string, name: string) =>
     request("/devices/" + id + "/name", { method: "POST", body: JSON.stringify({ name }) }),
+  getLibraryState: (id: string) => request<LibraryState>(`/devices/${id}/library-state`),
+  setLibraryState: (id: string, path: BreadcrumbEntry[]) =>
+    request("/devices/" + id + "/library-state", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    }),
   getChannel: (id: string) => request<{ channel: string }>(`/devices/${id}/channel`),
   setChannel: (id: string, channel: string) =>
     request("/devices/" + id + "/channel", { method: "POST", body: JSON.stringify({ channel }) }),
@@ -195,6 +201,15 @@ export interface Device {
   source: string | null;
   group_id: string | null;
   is_master: boolean;
+}
+
+export interface BreadcrumbEntry {
+  id: string;
+  title: string;
+}
+
+export interface LibraryState {
+  path: BreadcrumbEntry[];
 }
 
 export interface LibraryItem {

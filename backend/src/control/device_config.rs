@@ -46,6 +46,14 @@ impl DeviceConfigStore {
         )
         .expect("Failed to initialize group_presets schema");
 
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS library_state (
+                device_id TEXT PRIMARY KEY,
+                path TEXT NOT NULL
+            );",
+        )
+        .expect("Failed to initialize library_state schema");
+
         store
     }
 
@@ -150,6 +158,29 @@ impl DeviceConfigStore {
         conn.execute(
             "DELETE FROM group_presets WHERE slot = ?1",
             params![slot as i32],
+        )
+        .ok();
+    }
+
+    /// Load the persisted library browse path (opaque JSON) for a device.
+    pub fn load_library_path(&self, device_id: &str) -> Option<String> {
+        let conn = Connection::open(&self.path).unwrap();
+        conn.query_row(
+            "SELECT path FROM library_state WHERE device_id = ?1",
+            params![device_id],
+            |row| row.get(0),
+        )
+        .ok()
+    }
+
+    /// Save (upsert) the library browse path (opaque JSON) for a device.
+    pub fn save_library_path(&self, device_id: &str, path_json: &str) {
+        let conn = Connection::open(&self.path).unwrap();
+        conn.execute(
+            "INSERT INTO library_state (device_id, path)
+             VALUES (?1, ?2)
+             ON CONFLICT(device_id) DO UPDATE SET path = excluded.path",
+            params![device_id, path_json],
         )
         .ok();
     }

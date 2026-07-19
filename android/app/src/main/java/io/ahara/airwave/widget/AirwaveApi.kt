@@ -15,7 +15,14 @@ data class AirwaveDevice(
     val volume: Double,
 )
 
-data class PlaybackState(val playing: Boolean)
+data class PlaybackState(
+    val playing: Boolean,
+    val title: String?,
+    val artist: String?,
+    val album: String?,
+    /** The album/playlist/source the current track is playing from. */
+    val source: String?,
+)
 
 class AirwaveApi(
     private val baseUrl: String,
@@ -42,7 +49,15 @@ class AirwaveApi(
 
     fun playback(deviceId: String): PlaybackState {
         val json = JSONObject(request("GET", "/api/playback/${deviceId.urlPath()}"))
-        return PlaybackState(playing = json.optBoolean("playing", false))
+        val track = json.optJSONObject("current_track")
+        val session = json.optJSONObject("session")
+        return PlaybackState(
+            playing = json.optBoolean("playing", false),
+            title = track?.optString("title")?.ifBlank { null },
+            artist = track?.optString("artist")?.ifBlank { null },
+            album = track?.optString("album")?.ifBlank { null },
+            source = session?.optString("label")?.ifBlank { null },
+        )
     }
 
     fun pause(deviceId: String) {

@@ -1,7 +1,7 @@
 [network]
 # Override the advertised IP for container environments.
 # If unset, auto-detects from network interfaces.
-# advertise_ip = "192.168.1.50"
+# advertise_ip = "192.0.2.50"
 port = 7882
 
 [media]

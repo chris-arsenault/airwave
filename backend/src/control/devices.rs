@@ -4,7 +4,7 @@ use axum::Json;
 
 use super::models::{
     ChannelRequest, DeviceCapabilitiesResponse, DeviceNameRequest, DeviceResponse,
-    SetEnabledRequest, VolumeRequest,
+    LibraryStateRequest, LibraryStateResponse, SetEnabledRequest, VolumeRequest,
 };
 use super::state::ControlState;
 
@@ -43,6 +43,46 @@ pub async fn get_device(
 ) -> Result<Json<DeviceResponse>, StatusCode> {
     let d = state.devices.get(&id).ok_or(StatusCode::NOT_FOUND)?;
     Ok(Json(device_to_response(&d)))
+}
+
+fn default_library_path() -> Vec<super::models::LibraryPathEntry> {
+    vec![super::models::LibraryPathEntry {
+        id: "0".to_string(),
+        title: "Library".to_string(),
+    }]
+}
+
+pub async fn get_library_state(
+    State(state): State<ControlState>,
+    Path(id): Path<String>,
+) -> Result<Json<LibraryStateResponse>, StatusCode> {
+    if !state.devices.contains(&id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let path = state
+        .device_config
+        .load_library_path(&id)
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_else(default_library_path);
+    Ok(Json(LibraryStateResponse { path }))
+}
+
+pub async fn set_library_state(
+    State(state): State<ControlState>,
+    Path(id): Path<String>,
+    Json(body): Json<LibraryStateRequest>,
+) -> Result<StatusCode, StatusCode> {
+    if !state.devices.contains(&id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let path = if body.path.is_empty() {
+        default_library_path()
+    } else {
+        body.path
+    };
+    let json = serde_json::to_string(&path).map_err(|_| StatusCode::BAD_REQUEST)?;
+    state.device_config.save_library_path(&id, &json);
+    Ok(StatusCode::OK)
 }
 
 pub async fn set_enabled(
