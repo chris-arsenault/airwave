@@ -12,6 +12,12 @@ module "api" {
 
   routes = [
     {
+      priority      = 171
+      paths         = ["/api/*"]
+      methods       = ["OPTIONS"]
+      authenticated = false
+    },
+    {
       priority      = 172
       paths         = ["/api/*"]
       authenticated = true

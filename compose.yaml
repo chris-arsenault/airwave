@@ -10,11 +10,5 @@ services:
     environment:
       - RUST_LOG=airwave_server=info
 
-  frontend:
-    image: ghcr.io/chris-arsenault/airwave/frontend:${IMAGE_TAG:-latest}
-    container_name: airwave-frontend
-    network_mode: host
-    restart: unless-stopped
-
 volumes:
   airwave-data:
