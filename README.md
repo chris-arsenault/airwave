@@ -23,6 +23,13 @@ docker compose up -d
 # Or run components individually — see each directory
 ```
 
+The LAN web UI is served at `http://<server>:7880`. It talks to the backend
+through the frontend container's `/api` proxy and does not require Cognito.
+Public access remains available through the Cognito-protected AWS deployment.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the LAN, public, and Android delivery
+models and their authentication boundaries.
+
 ## Supported Audio Formats
 
 FLAC, MP3, AAC/M4A, WAV, OGG Vorbis, AIFF, PCM (L16), WMA

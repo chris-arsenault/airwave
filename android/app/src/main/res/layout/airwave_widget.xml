@@ -13,7 +13,7 @@
         android:ellipsize="end"
         android:gravity="center_vertical"
         android:maxLines="1"
-        android:text="Airwave"
+        android:text="@string/widget_default_device"
         android:textColor="@color/widget_accent"
         android:textSize="12sp"
         android:textStyle="bold" />
@@ -27,7 +27,7 @@
         android:ellipsize="end"
         android:gravity="center_vertical"
         android:maxLines="1"
-        android:text="Nothing playing"
+        android:text="@string/widget_nothing_playing"
         android:textColor="@color/widget_text"
         android:textSize="18sp"
         android:textStyle="bold" />
@@ -38,7 +38,7 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:text="Tap device name to cycle"
+        android:text="@string/widget_cycle_hint"
         android:textColor="@color/widget_text_secondary"
         android:textSize="12sp" />
 
@@ -51,28 +51,28 @@
         <ImageView
             android:id="@+id/volume_down"
             style="@style/WidgetButton"
-            android:contentDescription="Volume down"
+            android:contentDescription="@string/action_volume_down"
             android:src="@drawable/ic_volume_down" />
 
         <ImageView
             android:id="@+id/play_pause"
             style="@style/WidgetPrimaryButton"
             android:layout_marginStart="8dp"
-            android:contentDescription="Play or pause"
+            android:contentDescription="@string/action_play_pause"
             android:src="@drawable/ic_play" />
 
         <ImageView
             android:id="@+id/next"
             style="@style/WidgetButton"
             android:layout_marginStart="8dp"
-            android:contentDescription="Next track"
+            android:contentDescription="@string/action_next"
             android:src="@drawable/ic_skip_next" />
 
         <ImageView
             android:id="@+id/volume_up"
             style="@style/WidgetButton"
             android:layout_marginStart="8dp"
-            android:contentDescription="Volume up"
+            android:contentDescription="@string/action_volume_up"
             android:src="@drawable/ic_volume_up" />
     </LinearLayout>
 </LinearLayout>

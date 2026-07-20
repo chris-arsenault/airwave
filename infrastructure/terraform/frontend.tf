@@ -8,5 +8,6 @@ module "frontend" {
     apiBaseUrl        = "https://${local.api_hostname}"
     cognitoUserPoolId = module.ctx.cognito_user_pool_id
     cognitoClientId   = module.cognito_app.client_id
+    authRequired      = true
   }
 }

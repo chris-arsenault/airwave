@@ -3,6 +3,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+fun String.asBuildConfigString(): String =
+    "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
 android {
     namespace = "io.ahara.airwave"
     compileSdk = 35
@@ -11,8 +14,23 @@ android {
         applicationId = "io.ahara.airwave"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.2.0"
+
+        val cognitoUserPoolId =
+            providers.gradleProperty("AIRWAVE_COGNITO_USER_POOL_ID").orNull
+                ?: System.getenv("AIRWAVE_COGNITO_USER_POOL_ID")
+                ?: "us-east-1_XYYtBMb93"
+        val cognitoClientId =
+            providers.gradleProperty("AIRWAVE_COGNITO_CLIENT_ID").orNull
+                ?: System.getenv("AIRWAVE_COGNITO_CLIENT_ID")
+                ?: "3a50ac015feqftsb52rivacsd2"
+        buildConfigField("String", "COGNITO_USER_POOL_ID", cognitoUserPoolId.asBuildConfigString())
+        buildConfigField("String", "COGNITO_CLIENT_ID", cognitoClientId.asBuildConfigString())
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     signingConfigs {

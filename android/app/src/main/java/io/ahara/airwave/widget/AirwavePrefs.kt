@@ -6,6 +6,7 @@ object AirwavePrefs {
     private const val PREFS = "airwave-control"
     private const val KEY_SERVER_URL = "server_url"
     private const val KEY_API_TOKEN = "api_token"
+    private const val KEY_AUTH_REQUIRED = "auth_required"
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_DEVICE_NAME = "device_name"
     private const val KEY_PLAYING = "playing"
@@ -23,14 +24,17 @@ object AirwavePrefs {
             .apply()
     }
 
-    fun apiToken(context: Context): String =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_API_TOKEN, "") ?: ""
+    fun authRequired(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.contains(KEY_AUTH_REQUIRED)) return prefs.getBoolean(KEY_AUTH_REQUIRED, false)
+        return !prefs.getString(KEY_API_TOKEN, "").isNullOrBlank()
+    }
 
-    fun setApiToken(context: Context, value: String) {
+    fun setAuthRequired(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putString(KEY_API_TOKEN, value.trim())
+            .putBoolean(KEY_AUTH_REQUIRED, value)
+            .remove(KEY_API_TOKEN)
             .apply()
     }
 

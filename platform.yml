@@ -8,6 +8,7 @@ stack:
 truenas: true
 images:
   - backend
+  - frontend
 android:
   dir: android
   ci_task: assembleDebug

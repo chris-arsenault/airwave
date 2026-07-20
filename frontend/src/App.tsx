@@ -17,6 +17,7 @@ import { usePlayerStore } from "./stores/playerStore";
 import { useUiStore } from "./stores/uiStore";
 import { useSSE } from "./hooks/useSSE";
 import { useMediaSession } from "./hooks/useMediaSession";
+import { config } from "./config";
 
 const queryClient = new QueryClient();
 
@@ -298,9 +299,10 @@ function AppGate() {
   const { auth, authActions } = useAuth();
 
   useEffect(() => {
-    setApiAuthToken(auth.status === "signedIn" ? auth.token : "");
+    setApiAuthToken(config.authRequired && auth.status === "signedIn" ? auth.token : "");
   }, [auth.status, auth.token]);
 
+  if (!config.authRequired) return <AppContent />;
   if (auth.status === "loading") {
     return <div className="login-screen">Loading…</div>;
   }

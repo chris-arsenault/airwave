@@ -155,7 +155,12 @@ class AirwaveWidgetProvider : AppWidgetProvider() {
             if (serverUrl.isBlank()) {
                 throw IllegalStateException("Open app to set server URL")
             }
-            return AirwaveApi(serverUrl, AirwavePrefs.apiToken(context))
+            val token = if (AirwavePrefs.authRequired(context)) {
+                AirwaveAuthManager.idToken(context)
+            } else {
+                ""
+            }
+            return AirwaveApi(serverUrl, token)
         }
 
         private fun updateWidget(

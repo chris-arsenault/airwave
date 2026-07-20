@@ -1,60 +1,109 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/widget_background"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:fillViewport="true">
 
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Airwave Control"
-        android:textColor="@color/widget_text"
-        android:textSize="24sp"
-        android:textStyle="bold" />
+        android:orientation="vertical"
+        android:padding="24dp">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Enter the Airwave server URL. Use the LAN address or public hostname of your Airwave server."
-        android:textColor="@color/widget_text_secondary"
-        android:textSize="14sp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/config_title"
+            android:textColor="@color/widget_text"
+            android:textSize="24sp"
+            android:textStyle="bold" />
 
-    <EditText
-        android:id="@+id/server_url"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:hint="https://airwave.example.com"
-        android:inputType="textUri"
-        android:singleLine="true"
-        android:textColor="@color/widget_text"
-        android:textColorHint="@color/widget_text_secondary" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/config_instructions"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="14sp" />
 
-    <EditText
-        android:id="@+id/api_token"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:hint="Optional API token for public access"
-        android:inputType="textPassword"
-        android:singleLine="true"
-        android:textColor="@color/widget_text"
-        android:textColorHint="@color/widget_text_secondary" />
+        <EditText
+            android:id="@+id/server_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:hint="@string/config_server_hint"
+            android:importantForAutofill="no"
+            android:inputType="textUri"
+            android:singleLine="true"
+            android:textColor="@color/widget_text"
+            android:textColorHint="@color/widget_text_secondary" />
 
-    <Button
-        android:id="@+id/save_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="Save and refresh widget" />
+        <CheckBox
+            android:id="@+id/use_auth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/config_use_auth"
+            android:textColor="@color/widget_text" />
 
-    <TextView
-        android:id="@+id/config_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:textColor="@color/widget_text_secondary"
-        android:textSize="13sp" />
-</LinearLayout>
+        <EditText
+            android:id="@+id/username"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:autofillHints="username"
+            android:hint="@string/config_username_hint"
+            android:inputType="textEmailAddress"
+            android:singleLine="true"
+            android:textColor="@color/widget_text"
+            android:textColorHint="@color/widget_text_secondary" />
+
+        <EditText
+            android:id="@+id/password"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:autofillHints="password"
+            android:hint="@string/config_password_hint"
+            android:inputType="textPassword"
+            android:singleLine="true"
+            android:textColor="@color/widget_text"
+            android:textColorHint="@color/widget_text_secondary" />
+
+        <EditText
+            android:id="@+id/mfa_code"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:hint="@string/config_mfa_hint"
+            android:importantForAutofill="no"
+            android:inputType="numberPassword"
+            android:maxLength="6"
+            android:singleLine="true"
+            android:textColor="@color/widget_text"
+            android:textColorHint="@color/widget_text_secondary"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/save_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/action_save_refresh" />
+
+        <Button
+            android:id="@+id/sign_out_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/action_sign_out"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/config_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="13sp" />
+    </LinearLayout>
+</ScrollView>

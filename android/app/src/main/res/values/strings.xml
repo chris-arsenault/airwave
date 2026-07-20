@@ -1,4 +1,31 @@
 <resources>
     <string name="app_name">Airwave Control</string>
     <string name="widget_description">Airwave playback controls</string>
+    <string name="config_title">Airwave Control</string>
+    <string name="config_instructions">Enter the Airwave server URL. Use the LAN address or public API hostname of your Airwave server.</string>
+    <string name="config_server_hint">https://api.airwave.example.com</string>
+    <string name="config_use_auth">Use Cognito authentication for public access</string>
+    <string name="config_username_hint">Username or email</string>
+    <string name="config_password_hint">Password</string>
+    <string name="config_mfa_hint">6-digit authenticator code</string>
+    <string name="action_save_refresh">Save and refresh widget</string>
+    <string name="action_sign_in_save">Sign in and save</string>
+    <string name="action_verify_save">Verify and save</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="status_signed_in">Signed in as %1$s</string>
+    <string name="status_signed_out">Signed out</string>
+    <string name="status_invalid_server_url">Server URL must start with http:// or https://</string>
+    <string name="status_saved_refreshing">Saved. Refreshing devices…</string>
+    <string name="status_credentials_required">Enter your username and password.</string>
+    <string name="status_signing_in">Signing in…</string>
+    <string name="status_auth_failed">Authentication failed</string>
+    <string name="status_signed_in_refreshing">Signed in as %1$s. Refreshing devices…</string>
+    <string name="status_mfa_required">Enter your authenticator code.</string>
+    <string name="widget_default_device">Airwave</string>
+    <string name="widget_nothing_playing">Nothing playing</string>
+    <string name="widget_cycle_hint">Tap device name to cycle</string>
+    <string name="action_volume_down">Volume down</string>
+    <string name="action_play_pause">Play or pause</string>
+    <string name="action_next">Next track</string>
+    <string name="action_volume_up">Volume up</string>
 </resources>
