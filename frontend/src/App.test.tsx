@@ -2,9 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "./test-utils";
 import App from "./App";
+import { api, setApiAuthToken } from "./api/client";
 import { useDeviceStore } from "./stores/deviceStore";
 import { usePlayerStore } from "./stores/playerStore";
 import { useUiStore } from "./stores/uiStore";
+
+vi.mock("./config", () => ({
+  config: { authRequired: true },
+}));
 
 // Mock api
 vi.mock("./api/client", () => ({
@@ -51,9 +56,20 @@ vi.mock("framer-motion", () => ({
 
 describe("App", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     useDeviceStore.setState({ devices: [], activeDeviceId: null });
     usePlayerStore.setState({ playing: false, currentTrack: null, session: null });
     useUiStore.setState({ drawer: null });
+  });
+
+  it("installs the signed-in token before the initial device request", async () => {
+    renderWithProviders(<App />);
+
+    await waitFor(() => expect(api.getDevices).toHaveBeenCalled());
+    expect(setApiAuthToken).toHaveBeenCalledWith("test-token");
+    expect(vi.mocked(setApiAuthToken).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(api.getDevices).mock.invocationCallOrder[0]
+    );
   });
 
   it("shows player as main view", () => {

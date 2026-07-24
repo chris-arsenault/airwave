@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { api, type SessionInfo } from "./api/client";
@@ -297,17 +297,30 @@ export default function App() {
 
 function AppGate() {
   const { auth, authActions } = useAuth();
+  const token = config.authRequired && auth.status === "signedIn" ? auth.token : "";
+  let content: ReactNode;
+
+  if (!config.authRequired || auth.status === "signedIn") {
+    content = <AppContent />;
+  } else if (auth.status === "loading") {
+    content = <div className="login-screen">Loading…</div>;
+  } else {
+    content = <Login auth={auth} authActions={authActions} />;
+  }
+
+  return <ApiAuthBoundary token={token}>{content}</ApiAuthBoundary>;
+}
+
+function ApiAuthBoundary({ token, children }: { token: string; children: ReactNode }) {
+  const [readyToken, setReadyToken] = useState<string | null>(null);
 
   useEffect(() => {
-    setApiAuthToken(config.authRequired && auth.status === "signedIn" ? auth.token : "");
-  }, [auth.status, auth.token]);
+    setApiAuthToken(token);
+    setReadyToken(token);
+  }, [token]);
 
-  if (!config.authRequired) return <AppContent />;
-  if (auth.status === "loading") {
+  if (readyToken !== token) {
     return <div className="login-screen">Loading…</div>;
   }
-  if (auth.status !== "signedIn") {
-    return <Login auth={auth} authActions={authActions} />;
-  }
-  return <AppContent />;
+  return children;
 }
