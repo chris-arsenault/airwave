@@ -5,6 +5,9 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    global: "globalThis",
+  },
   server: {
     proxy: {
       "/api": "http://localhost:7882",
