@@ -3,6 +3,9 @@
 # If unset, auto-detects from network interfaces.
 # advertise_ip = "192.0.2.50"
 port = 7882
+# Defaults to standard SSDP multicast. AIRWAVE_SSDP_TARGETS can replace this
+# with a comma-separated list when discovery must cross a routed boundary.
+ssdp_targets = ["239.255.255.250"]
 
 [media]
 music_dirs = ["/mnt/music"]

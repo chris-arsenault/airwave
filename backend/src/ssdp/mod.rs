@@ -31,18 +31,20 @@ impl SsdpService {
     }
 
     /// Send SSDP alive notifications for all device/service types.
-    pub async fn send_alive(&self, socket: &UdpSocket) {
-        let dest: SocketAddr = SocketAddr::V4(SocketAddrV4::new(SSDP_MULTICAST, SSDP_PORT));
-        for (nt, usn) in self.nts() {
-            let msg = messages::notify_alive(
-                &self.location,
-                &nt,
-                &usn,
-                &self.server_string,
-                CACHE_CONTROL_SECS,
-            );
-            if let Err(e) = socket.send_to(msg.as_bytes(), dest).await {
-                warn!("Failed to send SSDP alive: {e}");
+    pub async fn send_alive(&self, socket: &UdpSocket, targets: &[Ipv4Addr]) {
+        for target in targets {
+            let dest: SocketAddr = SocketAddr::V4(SocketAddrV4::new(*target, SSDP_PORT));
+            for (nt, usn) in self.nts() {
+                let msg = messages::notify_alive(
+                    &self.location,
+                    &nt,
+                    &usn,
+                    &self.server_string,
+                    CACHE_CONTROL_SECS,
+                );
+                if let Err(e) = socket.send_to(msg.as_bytes(), dest).await {
+                    warn!("Failed to send SSDP alive to {dest}: {e}");
+                }
             }
         }
         debug!("Sent SSDP alive notifications");
@@ -50,11 +52,13 @@ impl SsdpService {
 
     /// Send SSDP byebye notifications.
     #[allow(dead_code)]
-    pub async fn send_byebye(&self, socket: &UdpSocket) {
-        let dest: SocketAddr = SocketAddr::V4(SocketAddrV4::new(SSDP_MULTICAST, SSDP_PORT));
-        for (nt, usn) in self.nts() {
-            let msg = messages::notify_byebye(&nt, &usn);
-            let _ = socket.send_to(msg.as_bytes(), dest).await;
+    pub async fn send_byebye(&self, socket: &UdpSocket, targets: &[Ipv4Addr]) {
+        for target in targets {
+            let dest: SocketAddr = SocketAddr::V4(SocketAddrV4::new(*target, SSDP_PORT));
+            for (nt, usn) in self.nts() {
+                let msg = messages::notify_byebye(&nt, &usn);
+                let _ = socket.send_to(msg.as_bytes(), dest).await;
+            }
         }
         debug!("Sent SSDP byebye notifications");
     }
@@ -100,6 +104,7 @@ impl SsdpService {
 pub fn create_ssdp_socket(bind_ip: Ipv4Addr) -> std::io::Result<std::net::UdpSocket> {
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
     socket.set_reuse_address(true)?;
+    socket.set_broadcast(true)?;
     socket.set_nonblocking(true)?;
 
     let addr = SockAddr::from(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, SSDP_PORT));
@@ -112,7 +117,7 @@ pub fn create_ssdp_socket(bind_ip: Ipv4Addr) -> std::io::Result<std::net::UdpSoc
 }
 
 /// Run the SSDP listener + periodic advertiser.
-pub async fn run(uuid: String, base_url: String, bind_ip: Ipv4Addr) {
+pub async fn run(uuid: String, base_url: String, bind_ip: Ipv4Addr, targets: Vec<Ipv4Addr>) {
     let service = SsdpService::new(uuid, &base_url);
 
     let std_socket = match create_ssdp_socket(bind_ip) {
@@ -128,13 +133,14 @@ pub async fn run(uuid: String, base_url: String, bind_ip: Ipv4Addr) {
 
     // Initial alive burst (send 3 times per spec recommendation)
     for _ in 0..3 {
-        service.send_alive(&socket).await;
+        service.send_alive(&socket, &targets).await;
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
     info!("SSDP discovery active");
 
     let listen_socket = socket.clone();
     let advertise_socket = socket.clone();
+    let advertise_targets = targets;
 
     // Listener task
     let listen_service = SsdpService::new(service.uuid.clone(), &base_url);
@@ -164,7 +170,9 @@ pub async fn run(uuid: String, base_url: String, bind_ip: Ipv4Addr) {
         ));
         loop {
             interval.tick().await;
-            service.send_alive(&advertise_socket).await;
+            service
+                .send_alive(&advertise_socket, &advertise_targets)
+                .await;
         }
     });
 

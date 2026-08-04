@@ -26,6 +26,9 @@ docker compose up -d
 The LAN web UI is served at `http://<server>:7880`. It talks to the backend
 through the frontend container's `/api` proxy and does not require Cognito.
 Public access remains available through the Cognito-protected AWS deployment.
+The Compose deployment sends SSDP to both the standard multicast group and the
+home LAN's directed broadcast so WiiM discovery works across the routed VP2440;
+override `AIRWAVE_SSDP_TARGETS` if the site topology differs.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the LAN, public, and Android delivery
 models and their authentication boundaries.

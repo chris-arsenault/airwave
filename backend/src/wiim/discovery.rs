@@ -12,8 +12,8 @@ use super::https_api::HttpsApiClient;
 use crate::control::device_config::DeviceConfigStore;
 use crate::control::events::EventBus;
 
-const SSDP_MULTICAST: Ipv4Addr = Ipv4Addr::new(239, 255, 255, 250);
 const SSDP_PORT: u16 = 1900;
+const DISCOVERY_RESPONSE_PORT: u16 = 1901;
 const MEDIA_RENDERER_URN: &str = "urn:schemas-upnp-org:device:MediaRenderer:1";
 const UPNP_NS: &str = "urn:schemas-upnp-org:device-1-0";
 
@@ -36,14 +36,35 @@ struct DeviceInfo {
 }
 
 /// Send M-SEARCH for MediaRenderer devices and collect responses.
-async fn search_renderers(bind_ip: Ipv4Addr) -> Vec<DiscoveredLocation> {
-    let socket = match UdpSocket::bind(SocketAddrV4::new(bind_ip, 0)).await {
+async fn search_renderers(bind_ip: Ipv4Addr, targets: &[Ipv4Addr]) -> Vec<DiscoveredLocation> {
+    search_renderers_with(
+        bind_ip,
+        targets,
+        SSDP_PORT,
+        DISCOVERY_RESPONSE_PORT,
+        Duration::from_secs(4),
+    )
+    .await
+}
+
+async fn search_renderers_with(
+    bind_ip: Ipv4Addr,
+    targets: &[Ipv4Addr],
+    target_port: u16,
+    response_port: u16,
+    response_timeout: Duration,
+) -> Vec<DiscoveredLocation> {
+    let socket = match UdpSocket::bind(SocketAddrV4::new(bind_ip, response_port)).await {
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to bind discovery socket: {e}");
             return Vec::new();
         }
     };
+    if let Err(e) = socket.set_broadcast(true) {
+        warn!("Failed to enable broadcast discovery: {e}");
+        return Vec::new();
+    }
 
     let search = format!(
         "M-SEARCH * HTTP/1.1\r\n\
@@ -54,20 +75,25 @@ async fn search_renderers(bind_ip: Ipv4Addr) -> Vec<DiscoveredLocation> {
          \r\n"
     );
 
-    let dest = SocketAddr::V4(SocketAddrV4::new(SSDP_MULTICAST, SSDP_PORT));
-
-    // Send twice for reliability
-    for _ in 0..2 {
-        if let Err(e) = socket.send_to(search.as_bytes(), dest).await {
-            warn!("Failed to send M-SEARCH: {e}");
-            return Vec::new();
+    let mut sent = false;
+    for target in targets {
+        let dest = SocketAddr::V4(SocketAddrV4::new(*target, target_port));
+        // Send twice for reliability.
+        for _ in 0..2 {
+            match socket.send_to(search.as_bytes(), dest).await {
+                Ok(_) => sent = true,
+                Err(e) => warn!("Failed to send M-SEARCH to {dest}: {e}"),
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    if !sent {
+        return Vec::new();
     }
 
     let mut results = Vec::new();
     let mut seen = HashSet::new();
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(4);
+    let deadline = tokio::time::Instant::now() + response_timeout;
 
     loop {
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
@@ -259,6 +285,7 @@ pub async fn run_discovery(
     device_config: Arc<DeviceConfigStore>,
     events: EventBus,
     bind_ip: Ipv4Addr,
+    targets: Vec<Ipv4Addr>,
     interval: Duration,
 ) {
     let client = reqwest::Client::builder()
@@ -276,7 +303,7 @@ pub async fn run_discovery(
 
     loop {
         debug!("Starting device discovery scan");
-        let discovered = search_renderers(bind_ip).await;
+        let discovered = search_renderers(bind_ip, &targets).await;
 
         let mut current_ids: HashSet<String> = HashSet::new();
 
@@ -617,5 +644,42 @@ async fn refresh_group_state(device_id: &str, device_manager: &DeviceManager, ev
             d.volume = new_vol;
             d.muted = new_muted;
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn sends_search_to_configured_target_and_collects_reply() {
+        let responder = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let responder_port = responder.local_addr().unwrap().port();
+        let reply = tokio::spawn(async move {
+            let mut buf = [0_u8; 2048];
+            let (len, source) = responder.recv_from(&mut buf).await.unwrap();
+            assert!(String::from_utf8_lossy(&buf[..len]).starts_with("M-SEARCH"));
+            responder
+                .send_to(
+                    b"HTTP/1.1 200 OK\r\nLOCATION: http://127.0.0.1:49152/description.xml\r\nUSN: uuid:test-renderer\r\n\r\n",
+                    source,
+                )
+                .await
+                .unwrap();
+        });
+
+        let found = search_renderers_with(
+            Ipv4Addr::LOCALHOST,
+            &[Ipv4Addr::LOCALHOST],
+            responder_port,
+            0,
+            Duration::from_millis(300),
+        )
+        .await;
+        reply.await.unwrap();
+
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].location, "http://127.0.0.1:49152/description.xml");
+        assert_eq!(found[0].usn, "uuid:test-renderer");
     }
 }

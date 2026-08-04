@@ -50,10 +50,11 @@ async fn main() {
     };
 
     info!(
-        "Starting {} on {}:{}",
+        "Starting {} on {}:{} with SSDP targets {:?}",
         cfg.server.friendly_name,
         cfg.effective_ip(),
-        cfg.network.port
+        cfg.network.port,
+        cfg.network.ssdp_targets,
     );
 
     // Generate a stable UUID based on friendly name (deterministic across restarts)
@@ -346,7 +347,8 @@ async fn main() {
     let ssdp_uuid = uuid.clone();
     let ssdp_base = cfg.base_url();
     let ssdp_ip = cfg.effective_ip();
-    tokio::spawn(ssdp::run(ssdp_uuid, ssdp_base, ssdp_ip));
+    let ssdp_targets = cfg.network.ssdp_targets.clone();
+    tokio::spawn(ssdp::run(ssdp_uuid, ssdp_base, ssdp_ip, ssdp_targets));
 
     // SSDP discovery (find WiiM MediaRenderer devices)
     let disc_devices = device_manager.clone();
@@ -358,6 +360,7 @@ async fn main() {
         disc_config,
         disc_events,
         disc_ip,
+        cfg.network.ssdp_targets.clone(),
         Duration::from_secs(30),
     ));
 

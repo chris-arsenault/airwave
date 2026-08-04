@@ -75,7 +75,12 @@ Server:      ssdp::SsdpService::handle_msearch()
              → sends unicast response with LOCATION pointing to device.xml
 ```
 
-The server also proactively announces itself every 15 minutes (CACHE-CONTROL/2) via NOTIFY alive messages.
+The server also proactively announces itself every 15 minutes (CACHE-CONTROL/2)
+via NOTIFY alive messages. Active renderer discovery and NOTIFY announcements
+are sent to every configured SSDP target. The default is multicast; the Ahara
+Compose deployment adds the home LAN's directed broadcast because TrueNAS and
+the WiiM devices occupy different routed subnets. Active-search replies return
+to fixed UDP port 1901.
 
 ### 2. Description (HTTP/XML)
 

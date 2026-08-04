@@ -18,6 +18,12 @@ The container frontend's runtime configuration has `authRequired: false`, so
 authentication to the backend's direct LAN endpoints; network access remains
 the LAN trust boundary.
 
+The backend sends active discovery and NOTIFY announcements to each address in
+`AIRWAVE_SSDP_TARGETS`. Compose includes standard SSDP multicast and the Ahara
+home LAN's directed broadcast; replies return to fixed UDP port 1901 so the
+VP2440 can keep its cross-zone rule narrow. WiiM description/SOAP traffic then
+uses the device-advertised high TCP port, while the extended API uses 443.
+
 ## Public web and API
 
 Terraform deploys the Vite build to an encrypted private S3 bucket behind
