@@ -9,9 +9,9 @@ services:
       - airwave-data:/data
     environment:
       - RUST_LOG=airwave_server=info
-      # Multicast stays available on-link; the home directed broadcast crosses
-      # the VP2440 on the Airwave flows declared in ahara-vpn site.nix.
-      - AIRWAVE_SSDP_TARGETS=${AIRWAVE_SSDP_TARGETS:-239.255.255.250,192.168.65.255}
+      # Multicast stays available on-link. The VP2440 collector endpoint
+      # re-originates approved SSDP on the home subnet for WiiM devices.
+      - AIRWAVE_SSDP_TARGETS=${AIRWAVE_SSDP_TARGETS:-239.255.255.250,192.168.66.1}
 
   frontend:
     image: ghcr.io/chris-arsenault/airwave/frontend:${IMAGE_TAG:-latest}

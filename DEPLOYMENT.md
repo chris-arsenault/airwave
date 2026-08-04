@@ -20,9 +20,11 @@ the LAN trust boundary.
 
 The backend sends active discovery and NOTIFY announcements to each address in
 `AIRWAVE_SSDP_TARGETS`. Compose includes standard SSDP multicast and the Ahara
-home LAN's directed broadcast; replies return to fixed UDP port 1901 so the
-VP2440 can keep its cross-zone rule narrow. WiiM description/SOAP traffic then
-uses the device-advertised high TCP port, while the extended API uses 443.
+collector endpoint on the server-side VP2440 address. The collector validates
+Airwave's SSDP messages, re-originates them from the home-side address, and
+returns renderer replies to Airwave's fixed UDP port 1901. WiiM
+description/SOAP traffic then uses the device-advertised high TCP port, while
+the extended API uses 443.
 
 ## Public web and API
 
