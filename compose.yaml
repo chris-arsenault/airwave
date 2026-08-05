@@ -12,7 +12,7 @@ services:
       # Multicast stays available on-link. The ahara-collector appliance on
       # the home LAN re-originates approved SSDP for WiiM devices and
       # returns renderer replies to the fixed response port.
-      - AIRWAVE_SSDP_TARGETS=${AIRWAVE_SSDP_TARGETS:-239.255.255.250,192.168.65.3}
+      - AIRWAVE_SSDP_TARGETS=${AIRWAVE_SSDP_TARGETS:-239.255.255.250,192.168.65.10}
 
   frontend:
     image: ghcr.io/chris-arsenault/airwave/frontend:${IMAGE_TAG:-latest}
