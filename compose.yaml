@@ -9,9 +9,10 @@ services:
       - airwave-data:/data
     environment:
       - RUST_LOG=airwave_server=info
-      # Multicast stays available on-link. The VP2440 collector endpoint
-      # re-originates approved SSDP on the home subnet for WiiM devices.
-      - AIRWAVE_SSDP_TARGETS=${AIRWAVE_SSDP_TARGETS:-239.255.255.250,192.168.66.1}
+      # Multicast stays available on-link. The ahara-collector appliance on
+      # the home LAN re-originates approved SSDP for WiiM devices and
+      # returns renderer replies to the fixed response port.
+      - AIRWAVE_SSDP_TARGETS=${AIRWAVE_SSDP_TARGETS:-239.255.255.250,192.168.65.3}
 
   frontend:
     image: ghcr.io/chris-arsenault/airwave/frontend:${IMAGE_TAG:-latest}
