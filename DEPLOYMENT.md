@@ -20,7 +20,7 @@ the LAN trust boundary.
 
 The backend sends active discovery and NOTIFY announcements to each address in
 `AIRWAVE_SSDP_TARGETS`. Compose includes standard SSDP multicast and the
-ahara-collector appliance's home-LAN address. The collector validates
+ahara-collector appliance's IoT-LAN address. The collector validates
 Airwave's SSDP messages, re-originates them on-link, and returns renderer
 replies to Airwave's fixed UDP port 1901. WiiM
 description/SOAP traffic then uses the device-advertised high TCP port, while
