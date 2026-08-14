@@ -34,10 +34,9 @@ mime_guess = "2"
 tokio-util = { version = "0.7", features = ["io"] }
 walkdir = "2"
 parking_lot = "0.12"
-httpdate = "1"
 local-ip-address = "0.6"
 roxmltree = "0.20"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 dashmap = "6"

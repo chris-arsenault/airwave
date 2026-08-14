@@ -14,6 +14,8 @@ pub enum HttpsApiError {
     Http(#[from] reqwest::Error),
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("collector URL error: {0}")]
+    Url(#[from] url::ParseError),
     #[error("API returned failure: {0}")]
     ApiFailed(String),
 }
@@ -100,30 +102,19 @@ impl EqBandResponse {
 }
 
 impl HttpsApiClient {
-    pub fn new(ip: &str) -> Self {
+    pub fn new(base_url: String, bearer_token: &str) -> Self {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            reqwest::header::HeaderValue::from_str(&format!("Bearer {bearer_token}"))
+                .expect("invalid collector bearer token"),
+        );
         let http = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
             .timeout(Duration::from_secs(5))
+            .default_headers(headers)
             .build()
-            .expect("failed to build HTTPS client");
-        Self {
-            http,
-            base_url: format!("https://{ip}"),
-        }
-    }
-
-    /// Build a short-timeout client for probing.
-    pub fn probe_client(ip: &str) -> Self {
-        let http = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
-            .timeout(Duration::from_secs(3))
-            .connect_timeout(Duration::from_secs(2))
-            .build()
-            .expect("failed to build HTTPS probe client");
-        Self {
-            http,
-            base_url: format!("https://{ip}"),
-        }
+            .expect("failed to build collector HTTPS client");
+        Self { http, base_url }
     }
 
     /// Check if the HTTPS API is reachable.
@@ -135,9 +126,10 @@ impl HttpsApiClient {
     }
 
     async fn command(&self, cmd: &str) -> Result<String, HttpsApiError> {
-        let url = format!("{}/httpapi.asp?command={}", self.base_url, cmd);
+        let mut url = reqwest::Url::parse(&self.base_url)?;
+        url.query_pairs_mut().append_pair("command", cmd);
         debug!("HTTPS API: {}", url);
-        let resp = self.http.get(&url).send().await?;
+        let resp = self.http.get(url).send().await?;
         let text = resp.text().await?;
         if text == "unknown command" {
             return Err(HttpsApiError::ApiFailed(text));
@@ -321,5 +313,39 @@ impl HttpsApiClient {
             return Ok(());
         }
         Err(HttpsApiError::ApiFailed(text.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    #[tokio::test]
+    async fn commands_use_the_fixed_collector_route_and_bearer() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 4096];
+            let length = stream.read(&mut request).await.unwrap();
+            let request = String::from_utf8_lossy(&request[..length]);
+            assert!(request
+                .starts_with("GET /wiim/wiim-1/linkplay?command=EQLoad%3AOffice+EQ HTTP/1.1"));
+            assert!(request
+                .to_ascii_lowercase()
+                .contains("authorization: bearer airwave-test-token"));
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\nOK")
+                .await
+                .unwrap();
+        });
+        let client = HttpsApiClient::new(
+            format!("http://{address}/wiim/wiim-1/linkplay"),
+            "airwave-test-token",
+        );
+        assert_eq!(client.command("EQLoad:Office EQ").await.unwrap(), "OK");
+        server.await.unwrap();
     }
 }

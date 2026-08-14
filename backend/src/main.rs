@@ -3,7 +3,6 @@ mod config;
 mod control;
 mod media;
 mod services;
-mod ssdp;
 mod streaming;
 mod upnp;
 mod wiim;
@@ -15,6 +14,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use std::net::SocketAddr;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 use tower_http::cors::{Any, CorsLayer};
@@ -48,13 +48,21 @@ async fn main() {
             std::process::exit(1);
         }
     };
+    let collector_token = match config::Config::collector_token() {
+        Ok(token) => token,
+        Err(error) => {
+            error!("{error}");
+            std::process::exit(1);
+        }
+    };
+    let collector = wiim::collector::CollectorClient::new(&cfg.collector.url, collector_token);
 
     info!(
-        "Starting {} on {}:{} with SSDP targets {:?}",
+        "Starting {} on {}:{} with WiiM collector {}",
         cfg.server.friendly_name,
         cfg.effective_ip(),
         cfg.network.port,
-        cfg.network.ssdp_targets,
+        cfg.collector.url,
     );
 
     // Generate a stable UUID based on friendly name (deterministic across restarts)
@@ -113,6 +121,7 @@ async fn main() {
     let art_cache = Arc::new(media::art::ArtCache::new(data_dir));
 
     let sleep_timer_manager = control::timer::SleepTimerManager::new();
+    let collector_ready = Arc::new(AtomicBool::new(false));
 
     let control_state = control::state::ControlState {
         devices: device_manager.clone(),
@@ -125,6 +134,7 @@ async fn main() {
         art_cache,
         sleep_timers: sleep_timer_manager,
         base_url: cfg.base_url(),
+        collector_ready: Arc::clone(&collector_ready),
     };
 
     // Routes match frontend API client paths (relative to /api/)
@@ -343,24 +353,25 @@ async fn main() {
         scan_interval,
     ));
 
-    // SSDP advertisement (this server as a MediaServer)
-    let ssdp_uuid = uuid.clone();
-    let ssdp_base = cfg.base_url();
-    let ssdp_ip = cfg.effective_ip();
-    let ssdp_targets = cfg.network.ssdp_targets.clone();
-    tokio::spawn(ssdp::run(ssdp_uuid, ssdp_base, ssdp_ip, ssdp_targets));
+    // The collector advertises this existing MediaServer locally on the IoT
+    // LAN. Registration is leased so a stopped Airwave disappears naturally.
+    tokio::spawn(wiim::collector::run_media_registration(
+        collector.clone(),
+        uuid.clone(),
+        cfg.base_url(),
+    ));
 
-    // SSDP discovery (find WiiM MediaRenderer devices)
+    // Collector inventory supplies renderer reachability; Airwave retains
+    // capability probing, group state, and every playback semantic.
     let disc_devices = device_manager.clone();
     let disc_config = device_config_store.clone();
     let disc_events = event_bus.clone();
-    let disc_ip = cfg.effective_ip();
     tokio::spawn(wiim::discovery::run_discovery(
         disc_devices,
         disc_config,
         disc_events,
-        disc_ip,
-        cfg.network.ssdp_targets.clone(),
+        collector,
+        collector_ready,
         Duration::from_secs(30),
     ));
 

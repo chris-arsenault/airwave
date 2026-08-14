@@ -8,7 +8,11 @@ A complete music system for [WiiM](https://www.wiimhome.com/) devices: a fast DL
 
 ### [Backend](backend/) — Rust
 
-Unified DLNA/UPnP MediaServer and control plane. Serves music via SSDP discovery, SOAP browsing (Artists/Albums/Genres/All Tracks/Search), and HTTP streaming with seek support. Manages WiiM devices via UPnP, with server-side queue/session engine (shuffle/repeat), gapless playback, playlists, parametric EQ, metadata tag editing, and real-time SSE state push.
+Unified DLNA/UPnP MediaServer and control plane. The IoT collector advertises
+the server locally to WiiMs; Airwave serves SOAP browsing (Artists, Albums,
+Genres, All Tracks, Search) and HTTP streaming with seek support. It manages
+players through the collector's scoped transport while retaining its existing
+queue/session engine, grouping, EQ, playlists, metadata editing, and SSE state.
 
 ### [Frontend](frontend/) — React/Vite
 
@@ -17,8 +21,8 @@ Mobile-first web UI inspired by [Poweramp](https://powerampapp.com/). Library br
 ## Quick Start
 
 ```bash
-# Full stack
-docker compose up -d
+# The collector generates this separately from its House Sensors token.
+AIRWAVE_COLLECTOR_TOKEN=<collector-airwave-token> docker compose up -d
 
 # Or run components individually — see each directory
 ```
@@ -26,10 +30,11 @@ docker compose up -d
 The LAN web UI is served at `http://<server>:7880`. It talks to the backend
 through the frontend container's `/api` proxy and does not require Cognito.
 Public access remains available through the Cognito-protected AWS deployment.
-The Compose deployment sends SSDP to both the standard multicast group and the
-ahara-collector appliance on the IoT LAN. The collector re-originates
-approved discovery and announcements on the WiiM subnet; override
-`AIRWAVE_SSDP_TARGETS` if the site topology differs.
+The backend reads renderer inventory and sends all WiiM HTTP/HTTPS through
+`https://collector.local.ahara.io:8443`. It renews a MediaServer lease there;
+the collector advertises Airwave on the IoT LAN. Configure a different endpoint
+with `AIRWAVE_COLLECTOR_URL`. The token comes from
+`/ahara/airwave/collector/api-token`, not the House Sensors secret.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the LAN, public, and Android delivery
 models and their authentication boundaries.

@@ -1,3 +1,4 @@
+pub mod collector;
 pub mod device;
 pub mod discovery;
 pub mod https_api;

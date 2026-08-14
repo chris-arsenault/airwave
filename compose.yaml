@@ -9,10 +9,10 @@ services:
       - airwave-data:/data
     environment:
       - RUST_LOG=airwave_server=info
-      # Multicast stays available on-link. The ahara-collector appliance on
-      # the IoT LAN re-originates approved SSDP for WiiM devices and
-      # returns renderer replies to the fixed response port.
-      - AIRWAVE_SSDP_TARGETS=${AIRWAVE_SSDP_TARGETS:-239.255.255.250,192.168.30.2}
+      # Renderer discovery and device traffic stay behind the collector's
+      # registry-constrained TLS API. This token cannot read sensor streams.
+      - AIRWAVE_COLLECTOR_URL=${AIRWAVE_COLLECTOR_URL:-https://collector.local.ahara.io:8443}
+      - AIRWAVE_COLLECTOR_TOKEN=${AIRWAVE_COLLECTOR_TOKEN}
 
   frontend:
     image: ghcr.io/chris-arsenault/airwave/frontend:${IMAGE_TAG:-latest}

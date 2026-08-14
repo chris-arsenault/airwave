@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
 
-const SSDP_TARGETS_ENV: &str = "AIRWAVE_SSDP_TARGETS";
+const COLLECTOR_URL_ENV: &str = "AIRWAVE_COLLECTOR_URL";
+const COLLECTOR_TOKEN_ENV: &str = "AIRWAVE_COLLECTOR_TOKEN";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -12,6 +13,8 @@ pub struct Config {
     pub media: MediaConfig,
     #[serde(default)]
     pub server: ServerConfig,
+    #[serde(default)]
+    pub collector: CollectorConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,8 +22,6 @@ pub struct NetworkConfig {
     pub advertise_ip: Option<Ipv4Addr>,
     #[serde(default = "default_port")]
     pub port: u16,
-    #[serde(default = "default_ssdp_targets")]
-    pub ssdp_targets: Vec<Ipv4Addr>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,35 +40,22 @@ pub struct ServerConfig {
     pub data_dir: PathBuf,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectorConfig {
+    #[serde(default = "default_collector_url")]
+    pub url: String,
+}
+
 fn default_data_dir() -> PathBuf {
     PathBuf::from("/data")
 }
 
+fn default_collector_url() -> String {
+    "https://collector.local.ahara.io:8443".to_string()
+}
+
 fn default_port() -> u16 {
     7882
-}
-
-fn default_ssdp_targets() -> Vec<Ipv4Addr> {
-    vec![Ipv4Addr::new(239, 255, 255, 250)]
-}
-
-fn parse_ssdp_targets(value: &str) -> Result<Vec<Ipv4Addr>, String> {
-    let targets = value
-        .split(',')
-        .map(str::trim)
-        .filter(|target| !target.is_empty())
-        .map(|target| {
-            target
-                .parse::<Ipv4Addr>()
-                .map_err(|error| format!("invalid SSDP target '{target}': {error}"))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    if targets.is_empty() {
-        return Err("at least one SSDP target is required".to_string());
-    }
-
-    Ok(targets)
 }
 
 fn default_music_dirs() -> Vec<PathBuf> {
@@ -87,7 +75,6 @@ impl Default for NetworkConfig {
         Self {
             advertise_ip: None,
             port: default_port(),
-            ssdp_targets: default_ssdp_targets(),
         }
     }
 }
@@ -110,23 +97,37 @@ impl Default for ServerConfig {
     }
 }
 
+impl Default for CollectorConfig {
+    fn default() -> Self {
+        Self {
+            url: default_collector_url(),
+        }
+    }
+}
+
 impl Config {
     pub fn load(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let content = std::fs::read_to_string(path)?;
         let mut config: Config = toml::from_str(&content)?;
-        match std::env::var(SSDP_TARGETS_ENV) {
-            Ok(value) => {
-                config.network.ssdp_targets = parse_ssdp_targets(&value).map_err(|message| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!("{SSDP_TARGETS_ENV}: {message}"),
-                    )
-                })?;
-            }
+        config.collector.url = validate_collector_url(&config.collector.url)?;
+        match std::env::var(COLLECTOR_URL_ENV) {
+            Ok(value) => config.collector.url = validate_collector_url(&value)?,
             Err(std::env::VarError::NotPresent) => {}
             Err(error) => return Err(error.into()),
         }
         Ok(config)
+    }
+
+    pub fn collector_token() -> Result<String, String> {
+        let value = std::env::var(COLLECTOR_TOKEN_ENV)
+            .map_err(|_| format!("{COLLECTOR_TOKEN_ENV} is required"))?;
+        let token = value.trim();
+        if token.len() < 16 {
+            return Err(format!(
+                "{COLLECTOR_TOKEN_ENV} must contain at least 16 characters"
+            ));
+        }
+        Ok(token.to_string())
     }
 
     pub fn effective_ip(&self) -> Ipv4Addr {
@@ -136,6 +137,21 @@ impl Config {
     pub fn base_url(&self) -> String {
         format!("http://{}:{}", self.effective_ip(), self.network.port)
     }
+}
+
+fn validate_collector_url(value: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let url = reqwest::Url::parse(value.trim())?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || url.path() != "/"
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err("collector URL must be an HTTP or HTTPS origin without credentials, path, query, or fragment".into());
+    }
+    Ok(value.trim().trim_end_matches('/').to_string())
 }
 
 fn detect_local_ip() -> Ipv4Addr {
@@ -153,29 +169,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ssdp_defaults_to_standard_multicast() {
+    fn validates_collector_urls() {
         assert_eq!(
-            NetworkConfig::default().ssdp_targets,
-            vec![Ipv4Addr::new(239, 255, 255, 250)]
+            validate_collector_url("https://collector.local.ahara.io:8443/").unwrap(),
+            "https://collector.local.ahara.io:8443"
         );
-    }
-
-    #[test]
-    fn parses_multiple_ssdp_targets() {
-        assert_eq!(
-            parse_ssdp_targets("239.255.255.250, 192.168.65.255").unwrap(),
-            vec![
-                Ipv4Addr::new(239, 255, 255, 250),
-                Ipv4Addr::new(192, 168, 65, 255),
-            ]
-        );
-    }
-
-    #[test]
-    fn rejects_empty_ssdp_target_list() {
-        assert_eq!(
-            parse_ssdp_targets(" , ").unwrap_err(),
-            "at least one SSDP target is required"
-        );
+        assert!(validate_collector_url("collector.local.ahara.io").is_err());
+        assert!(validate_collector_url("https://collector.local.ahara.io:8443/wiim").is_err());
     }
 }

@@ -34,6 +34,8 @@ pub struct DeviceParams {
     pub udn: String,
     pub service_urls: ServiceUrls,
     pub capabilities: DeviceCapabilities,
+    pub collector_url: String,
+    pub collector_token: String,
 }
 
 /// A discovered UPnP MediaRenderer device with its service clients.
@@ -64,9 +66,8 @@ pub struct WiimDevice {
 
 impl WiimDevice {
     pub fn new(params: DeviceParams) -> Self {
-        let base_url = format!("http://{}:{}", params.ip, params.port);
-        let client = SoapClient::new(base_url);
         let id = params.udn.replace("uuid:", "");
+        let client = SoapClient::new(params.collector_url.clone(), &params.collector_token);
 
         let device_type = if params.capabilities.wiim_extended {
             "wiim".to_string()
@@ -93,7 +94,10 @@ impl WiimDevice {
         };
 
         let https_client = if params.capabilities.https_api {
-            Some(HttpsApiClient::new(&params.ip))
+            Some(HttpsApiClient::new(
+                format!("{}/wiim/{id}/linkplay", params.collector_url),
+                &params.collector_token,
+            ))
         } else {
             None
         };

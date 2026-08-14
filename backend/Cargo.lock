@@ -36,7 +36,6 @@ dependencies = [
  "axum",
  "dashmap",
  "futures-core",
- "httpdate",
  "hyper",
  "local-ip-address",
  "lofty",

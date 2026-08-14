@@ -2,22 +2,25 @@
 
 ## Overview
 
-airwave implements a UPnP MediaServer:1 device. The UPnP Device Architecture 1.0 spec requires three protocol layers, plus HTTP media streaming:
+Airwave implements a UPnP MediaServer:1 device. The collector advertises that
+identity on the WiiM subnet; once discovered, players use Airwave's existing
+HTTP description, SOAP browse, and streaming endpoints directly:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     WiiM Device                             │
 │                  (DLNA Media Renderer)                      │
 └─────┬──────────────┬──────────────┬──────────────┬──────────┘
-      │ 1. Discovery │ 2. Description │ 3. Control  │ 4. Stream
-      │    (SSDP)    │    (HTTP/XML)  │  (SOAP/XML) │  (HTTP)
+      │ 1. Discovery │ 2. Description │ 3. Browse   │ 4. Stream
+      │ SSDP to      │    (HTTP/XML)  │  (SOAP/XML) │  (HTTP)
+      │ collector    │                │             │
       ▼              ▼                ▼              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     airwave                                │
 │                                                              │
 │  ┌──────────┐  ┌──────────────┐  ┌───────────┐  ┌────────┐ │
-│  │   SSDP   │  │  UPnP XML    │  │ Services  │  │ Stream │ │
-│  │ Multicast│  │ Descriptions │  │ (SOAP)    │  │ (HTTP) │ │
+│  │Collector │  │  UPnP XML    │  │ Services  │  │ Stream │ │
+│  │  lease   │  │ Descriptions │  │ (SOAP)    │  │ (HTTP) │ │
 │  └──────────┘  └──────────────┘  └───────────┘  └────────┘ │
 │         │              │               │              │      │
 │         └──────────────┴───────┬───────┴──────────────┘      │
@@ -44,10 +47,6 @@ src/
 ├── api.rs                          REST admin endpoints (/api/*)
 ├── streaming.rs                    HTTP Range-aware file serving
 │
-├── ssdp/
-│   ├── mod.rs                      UDP multicast listener + periodic announcer
-│   └── messages.rs                 SSDP message templates (NOTIFY, M-SEARCH response)
-│
 ├── upnp/
 │   ├── xml.rs                      Device + service description XML (device.xml, SCPDs)
 │   ├── soap.rs                     SOAP envelope parsing and generation
@@ -67,21 +66,15 @@ src/
 ### 1. Discovery (SSDP)
 
 ```
-WiiM sends:  M-SEARCH * HTTP/1.1  (UDP multicast 239.255.255.250:1900)
-             ST: urn:schemas-upnp-org:device:MediaServer:1
-
-Server:      ssdp::SsdpService::handle_msearch()
-             → matches ST against device_nts()
-             → sends unicast response with LOCATION pointing to device.xml
+Airwave:     PUT collector /wiim/media-server (renewable lease)
+Collector:   advertises five MediaServer targets on the IoT LAN
+WiiM:        M-SEARCH → collector response
+             LOCATION: http://192.168.66.3:7882/device.xml
 ```
 
-The server also proactively announces itself every 15 minutes (CACHE-CONTROL/2)
-via NOTIFY alive messages. Active renderer discovery and NOTIFY announcements
-are sent to every configured SSDP target. The default is multicast; the Ahara
-Compose deployment adds the ahara-collector appliance's home-LAN address
-because WiiM devices ignore SSDP sourced from TrueNAS's routed subnet. The
-collector re-originates those messages on-link (multicast plus directed
-broadcast) and returns active-search replies to fixed UDP port 1901.
+Airwave refreshes the lease every ten minutes. The collector expires it when
+Airwave stops refreshing, sends alive messages, and answers searches with the
+same UUID and HTTP location. Airwave opens no UDP socket.
 
 ### 2. Description (HTTP/XML)
 
@@ -149,13 +142,17 @@ The library is rebuilt from scratch on each scan (no incremental updates). This 
 ```
 main thread
 ├── axum HTTP server (tokio, multi-threaded)
-├── tokio::spawn → ssdp::run()           (SSDP listener + advertiser)
+├── tokio::spawn → collector registration renewal
+├── tokio::spawn → collector inventory + group refresh
+├── tokio::spawn → playback monitor
 └── tokio::spawn → library::scan_loop()  (periodic rescan)
 ```
 
 The library is shared via `Arc<RwLock<Library>>` (parking_lot). Read locks are held only briefly during Browse/stream lookups. Write locks only during scan completion (atomic swap).
 
-The SSDP task runs two sub-tasks: a listener for M-SEARCH requests and a periodic NOTIFY advertiser. Both share an `Arc<UdpSocket>`.
+Collector failures leave the existing device registry intact for that polling
+cycle. A device is removed only after a successful inventory response marks it
+unreachable or omits it.
 
 ## Key Design Decisions
 
@@ -178,14 +175,13 @@ The SSDP task runs two sub-tasks: a listener for M-SEARCH requests and a periodi
 | quick-xml | XML generation/parsing for SOAP and DIDL |
 | lofty | Audio metadata extraction (ID3, Vorbis, FLAC) |
 | serde + toml | Configuration |
-| socket2 | Multicast UDP socket setup |
+| socket2 | Explicit HTTP listener socket setup |
 | parking_lot | Fast RwLock |
 | walkdir | Recursive directory traversal |
 | uuid | Deterministic device UUID |
 | mime_guess | MIME type detection from file extensions |
 | percent-encoding | URL encoding for track IDs |
 | tokio-util | ReaderStream for async file streaming |
-| httpdate | HTTP date formatting for SSDP |
 | local-ip-address | Auto-detect host IP |
 | tracing | Structured logging |
 
@@ -207,17 +203,22 @@ src/
 │   └── models.rs                   Request/response types
 │
 ├── wiim/
-│   ├── discovery.rs                SSDP M-SEARCH + device registration + group state refresh
+│   ├── collector.rs                Authenticated inventory, probe, and MediaServer lease client
+│   ├── discovery.rs                Inventory registration + device-owned group state refresh
 │   ├── device.rs                   WiimDevice model + DeviceManager (DashMap)
-│   ├── https_api.rs                Linkplay HTTPS API client (EQ, grouping, status)
-│   ├── soap_client.rs              Generic SOAP client with retry
+│   ├── https_api.rs                LinkPlay semantics over the collector route
+│   ├── soap_client.rs              SOAP semantics over collector routes, with retry
 │   └── services/
 │       ├── av_transport.rs         AVTransport:1 (play, pause, seek, GetInfoEx)
 │       ├── rendering_control.rs    RenderingControl:1 (volume, mute, GetControlDeviceInfo)
 │       └── play_queue.rs           PlayQueue:1 (WiiM-proprietary queue)
 ```
 
-WiiM devices expose two distinct APIs — see [docs/WIIM-PROTOCOL.md](docs/WIIM-PROTOCOL.md) for the full protocol reference including multiroom grouping, EQ, source switching, and known idiosyncrasies.
+WiiM devices expose two distinct APIs. Airwave still builds commands and parses
+their responses; the collector resolves the device ID to its on-link endpoints
+and forwards bytes. See [docs/WIIM-PROTOCOL.md](docs/WIIM-PROTOCOL.md) for the
+protocol reference including multiroom grouping, EQ, source switching, and
+known idiosyncrasies.
 
 ## Protocol References
 

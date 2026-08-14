@@ -8,8 +8,8 @@ identity boundary.
 
 Docker Compose deploys two host-networked containers to TrueNAS through Komodo:
 
-- `airwave-backend` listens on port 7882 and participates directly in SSDP,
-  UPnP/SOAP, media streaming, and the control API.
+- `airwave-backend` listens on port 7882 for UPnP/SOAP, media streaming, and
+  the control API. It does not open an SSDP socket or connect to WiiM addresses.
 - `airwave-frontend` listens on port 7880 and proxies `/api/*` to
   `127.0.0.1:7882`.
 
@@ -18,13 +18,19 @@ The container frontend's runtime configuration has `authRequired: false`, so
 authentication to the backend's direct LAN endpoints; network access remains
 the LAN trust boundary.
 
-The backend sends active discovery and NOTIFY announcements to each address in
-`AIRWAVE_SSDP_TARGETS`. Compose includes standard SSDP multicast and the
-ahara-collector appliance's IoT-LAN address. The collector validates
-Airwave's SSDP messages, re-originates them on-link, and returns renderer
-replies to Airwave's fixed UDP port 1901. WiiM
-description/SOAP traffic then uses the device-advertised high TCP port, while
-the extended API uses 443.
+The backend authenticates to
+`https://collector.local.ahara.io:8443` with the secret mapped from
+`/ahara/airwave/collector/api-token`. It polls native renderer inventory and
+uses only the collector's device-ID routes for UPnP and LinkPlay commands.
+Airwave still parses every response and owns playback, grouping, and EQ.
+
+Airwave renews a lease for its existing MediaServer identity. The collector
+answers WiiM SSDP searches and sends the five UPnP advertisements on the IoT
+LAN. Their `LOCATION` points to `http://192.168.66.3:7882/device.xml`, so WiiMs
+fetch descriptions, browse the library, and stream media directly from
+Airwave over the one declared TCP 7882 flow. No UDP crosses the VLAN boundary.
+`GET /api/health` reports `collector.connected`; logs record inventory and
+lease-renewal failures without printing the bearer token.
 
 ## Public web and API
 

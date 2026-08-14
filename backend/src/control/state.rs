@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use crate::media::art::ArtCache;
@@ -23,4 +24,5 @@ pub struct ControlState {
     pub art_cache: Arc<ArtCache>,
     pub sleep_timers: SleepTimerManager,
     pub base_url: String,
+    pub collector_ready: Arc<AtomicBool>,
 }

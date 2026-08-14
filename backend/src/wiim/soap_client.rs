@@ -26,9 +26,16 @@ pub enum SoapError {
 }
 
 impl SoapClient {
-    pub fn new(base_url: String) -> Self {
+    pub fn new(base_url: String, bearer_token: &str) -> Self {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            reqwest::header::HeaderValue::from_str(&format!("Bearer {bearer_token}"))
+                .expect("invalid collector bearer token"),
+        );
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
+            .default_headers(headers)
             .build()
             .expect("failed to build HTTP client");
         Self { http, base_url }
