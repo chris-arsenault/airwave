@@ -12,7 +12,17 @@ services:
       # Renderer discovery and device traffic stay behind the collector's
       # registry-constrained TLS API. This token cannot read sensor streams.
       - AIRWAVE_COLLECTOR_URL=${AIRWAVE_COLLECTOR_URL:-https://collector.local.ahara.io:8443}
-      - AIRWAVE_COLLECTOR_TOKEN=${AIRWAVE_COLLECTOR_TOKEN}
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_SDK_LOAD_CONFIG=1
+      - AWS_RA_BACKEND_WORKLOAD_ID=${AWS_RA_BACKEND_WORKLOAD_ID}
+      - AWS_RA_BACKEND_ENROLLMENT_URL=${AWS_RA_BACKEND_ENROLLMENT_URL}
+      - AWS_RA_BACKEND_TRUST_ANCHOR_ARN=${AWS_RA_BACKEND_TRUST_ANCHOR_ARN}
+      - AWS_RA_BACKEND_PROFILE_ARN=${AWS_RA_BACKEND_PROFILE_ARN}
+      - AWS_RA_BACKEND_ENTRY_ROLE_ARN=${AWS_RA_BACKEND_ENTRY_ROLE_ARN}
+      - AWS_RA_BACKEND_ROLE_ARN=${AWS_RA_BACKEND_ROLE_ARN}
+      # What this container reads for itself at start. A path, not a value.
+      - AWS_RA_BACKEND_SECRET_AIRWAVE_COLLECTOR_TOKEN=/ahara/airwave/collector/api-token
 
   frontend:
     image: ghcr.io/chris-arsenault/airwave/frontend:${IMAGE_TAG:-latest}

@@ -9,6 +9,11 @@ truenas: true
 images:
   - backend
   - frontend
+# The backend reads its collector token at start, so it needs an identity to
+# read it with (ahara-trust ADR-0002).
+truenas_roles_anywhere:
+  backend:
+    env_prefix: AWS_RA_BACKEND
 android:
   dir: android
   ci_task: assembleDebug
