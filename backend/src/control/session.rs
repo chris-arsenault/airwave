@@ -90,6 +90,38 @@ impl PlaySession {
             }
         };
 
+        let mut session = Self::from_groups(source, groups)?;
+
+        // If a start track was specified, seek to it.
+        if let Some(start_id) = start_track_id {
+            session.seek_to_track(start_id);
+        }
+
+        Some(session)
+    }
+
+    /// Create a session from an explicit list of track IDs (a saved playlist).
+    /// Track IDs that are no longer in the library are skipped.
+    pub fn from_tracks(
+        source: SessionSource,
+        track_ids: &[String],
+        library: &Library,
+    ) -> Option<Self> {
+        let track_ids: Vec<String> = track_ids
+            .iter()
+            .filter(|id| matches!(library.get(id), Some(LibraryObject::Track(_))))
+            .cloned()
+            .collect();
+
+        let group = TrackGroup {
+            container_id: source.id.clone(),
+            label: source.label.clone(),
+            track_ids,
+        };
+        Self::from_groups(source, vec![group])
+    }
+
+    fn from_groups(source: SessionSource, groups: Vec<TrackGroup>) -> Option<Self> {
         if groups.is_empty() || groups.iter().all(|g| g.track_ids.is_empty()) {
             return None;
         }
@@ -100,7 +132,7 @@ impl PlaySession {
             .map(|g| (0..g.track_ids.len()).collect())
             .collect();
 
-        let mut session = Self {
+        Some(Self {
             source,
             groups,
             group_order,
@@ -110,14 +142,14 @@ impl PlaySession {
             shuffle_mode: ShuffleMode::Off,
             repeat_mode: RepeatMode::Off,
             next_sent: false,
-        };
+        })
+    }
 
-        // If a start track was specified, seek to it.
-        if let Some(start_id) = start_track_id {
-            session.seek_to_track(start_id);
-        }
-
-        Some(session)
+    /// Move back to the first track of the current ordering.
+    pub fn restart(&mut self) {
+        self.group_pos = 0;
+        self.track_pos = 0;
+        self.next_sent = false;
     }
 
     /// Returns the current track ID.
@@ -278,7 +310,8 @@ impl PlaySession {
         pos + self.track_pos
     }
 
-    fn seek_to_track(&mut self, track_id: &str) {
+    /// Move to `track_id` if it is part of the session; otherwise stay put.
+    pub fn seek_to_track(&mut self, track_id: &str) {
         for (gp, &gi) in self.group_order.iter().enumerate() {
             let group = &self.groups[gi];
             for (tp, &ti) in self.track_orders[gi].iter().enumerate() {
@@ -384,7 +417,8 @@ fn build_groups(
     }
 }
 
-fn collect_track_ids(library: &Library, container_id: &str) -> Vec<String> {
+/// Recursively collect every track ID under a container, in library order.
+pub fn collect_track_ids(library: &Library, container_id: &str) -> Vec<String> {
     let mut ids = Vec::new();
     for child in library.children_of(container_id) {
         match child {
@@ -613,5 +647,55 @@ mod tests {
         session.advance(); // t3
         session.advance(); // t4 (second group)
         assert_eq!(session.flat_position(), 3);
+    }
+
+    fn playlist_source() -> SessionSource {
+        SessionSource {
+            id: "pl1".to_string(),
+            label: "Mix".to_string(),
+            class: Some("object.container.playlistContainer".to_string()),
+            artist: None,
+            album: None,
+        }
+    }
+
+    #[test]
+    fn test_playlist_session_plays_in_saved_order() {
+        let lib = build_test_library();
+        let ids = vec!["t4".to_string(), "t1".to_string(), "t3".to_string()];
+        let mut session = PlaySession::from_tracks(playlist_source(), &ids, &lib).unwrap();
+
+        assert_eq!(session.total_tracks(), 3);
+        assert_eq!(session.current_track_id(), Some("t4"));
+        assert_eq!(session.advance(), Some("t1".to_string()));
+        assert_eq!(session.advance(), Some("t3".to_string()));
+        assert_eq!(session.advance(), None);
+    }
+
+    #[test]
+    fn test_playlist_session_skips_missing_tracks() {
+        let lib = build_test_library();
+        let ids = vec!["t1".to_string(), "gone".to_string()];
+        let session = PlaySession::from_tracks(playlist_source(), &ids, &lib).unwrap();
+
+        assert_eq!(session.total_tracks(), 1);
+        assert!(PlaySession::from_tracks(playlist_source(), &["gone".to_string()], &lib).is_none());
+    }
+
+    #[test]
+    fn test_playlist_shuffle_covers_every_track() {
+        let lib = build_test_library();
+        let ids = vec!["t1".to_string(), "t2".to_string(), "t3".to_string()];
+        let mut session = PlaySession::from_tracks(playlist_source(), &ids, &lib).unwrap();
+
+        session.set_shuffle(ShuffleMode::Tracks);
+        session.restart();
+
+        let mut played = vec![session.current_track_id().unwrap().to_string()];
+        while let Some(next) = session.advance() {
+            played.push(next);
+        }
+        played.sort();
+        assert_eq!(played, ids);
     }
 }

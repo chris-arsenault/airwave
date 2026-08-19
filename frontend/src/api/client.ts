@@ -120,8 +120,20 @@ export const api = {
   getPlaylists: () => request<Playlist[]>("/playlists"),
   getPlaylist: (id: number) => request<PlaylistDetail>(`/playlists/${id}`),
   createPlaylist: (name: string, trackIds: string[] = []) =>
-    request("/playlists", { method: "POST", body: JSON.stringify({ name, track_ids: trackIds }) }),
+    request<{ id: number; name: string; track_count: number }>("/playlists", {
+      method: "POST",
+      body: JSON.stringify({ name, track_ids: trackIds }),
+    }),
   deletePlaylist: (id: number) => request(`/playlists/${id}`, { method: "DELETE" }),
+  /** Track or container IDs — containers (albums, artists, genres) are expanded server-side. */
+  addToPlaylist: (id: number, trackIds: string[]) =>
+    request<{ added: number }>(`/playlists/${id}/tracks`, {
+      method: "POST",
+      body: JSON.stringify({ track_ids: trackIds }),
+    }),
+  removeFromPlaylist: (id: number, position: number) =>
+    request(`/playlists/${id}/tracks/${position}`, { method: "DELETE" }),
+  playlistSourceId: (id: number) => `pl${id}`,
 
   // Groups
   createGroup: (masterId: string, slaveIds: string[]) =>
@@ -312,8 +324,11 @@ export interface PlayRequest {
 }
 
 export interface SessionPlayRequest {
+  /** A library object ID, or `pl{id}` for a saved playlist. */
   source_id: string;
   start_track_id?: string;
+  /** Shuffle mode applied before the first track is chosen. */
+  shuffle?: "off" | "tracks" | "groups" | "both";
 }
 
 export interface TagUpdate {
@@ -340,8 +355,19 @@ export interface Playlist {
   updated_at: string | null;
 }
 
+export interface PlaylistTrack {
+  track_id: string;
+  position: number;
+  title?: string;
+  artist?: string;
+  album?: string;
+  duration?: string | null;
+  /** True when the track is no longer in the library. */
+  missing?: boolean;
+}
+
 export interface PlaylistDetail extends Playlist {
-  tracks: { track_id: string; position: number }[];
+  tracks: PlaylistTrack[];
 }
 
 export interface EqBand {

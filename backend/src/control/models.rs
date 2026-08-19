@@ -168,8 +168,11 @@ fn default_position() -> String {
 
 #[derive(Debug, Deserialize)]
 pub struct SessionPlayRequest {
+    /// A library object ID, or `pl{id}` for a saved playlist.
     pub source_id: String,
     pub start_track_id: Option<String>,
+    /// Shuffle mode to apply before the first track is chosen.
+    pub shuffle: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -269,6 +272,13 @@ pub struct PlaylistResponse {
 #[derive(Debug, Deserialize)]
 pub struct CreatePlaylistRequest {
     pub name: String,
+    /// Track or container IDs; containers are expanded to their tracks.
     #[serde(default)]
+    pub track_ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddPlaylistTracksRequest {
+    /// Track or container IDs; containers are expanded to their tracks.
     pub track_ids: Vec<String>,
 }

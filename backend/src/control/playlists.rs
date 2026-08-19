@@ -5,8 +5,10 @@ use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use tokio::task;
 
-use super::models::{CreatePlaylistRequest, PlaylistResponse};
+use super::models::{AddPlaylistTracksRequest, CreatePlaylistRequest, PlaylistResponse};
+use super::session::collect_track_ids;
 use super::state::ControlState;
+use crate::media::library::{Library, LibraryObject};
 
 pub struct PlaylistStore {
     path: String,
@@ -163,11 +165,58 @@ impl PlaylistStore {
                 )
                 .ok();
             }
+            touch(&conn, playlist_id);
             true
         })
         .await
         .unwrap_or(false)
     }
+
+    /// Remove the track at `position`, closing the gap left behind.
+    pub async fn remove_track(&self, playlist_id: i64, position: i64) -> bool {
+        let path = self.path.clone();
+        task::spawn_blocking(move || {
+            let conn = Connection::open(&path).unwrap();
+            let removed = conn
+                .execute(
+                    "DELETE FROM playlist_tracks WHERE playlist_id = ?1 AND position = ?2",
+                    params![playlist_id, position],
+                )
+                .map(|n| n > 0)
+                .unwrap_or(false);
+            if removed {
+                let _ = conn.execute(
+                    "UPDATE playlist_tracks SET position = position - 1
+                     WHERE playlist_id = ?1 AND position > ?2",
+                    params![playlist_id, position],
+                );
+                touch(&conn, playlist_id);
+            }
+            removed
+        })
+        .await
+        .unwrap_or(false)
+    }
+}
+
+fn touch(conn: &Connection, playlist_id: i64) {
+    let _ = conn.execute(
+        "UPDATE playlists SET updated_at = datetime('now') WHERE id = ?1",
+        params![playlist_id],
+    );
+}
+
+/// Expand a mix of track and container IDs into a flat list of track IDs.
+fn expand_track_ids(library: &Library, ids: &[String]) -> Vec<String> {
+    let mut tracks = Vec::new();
+    for id in ids {
+        match library.get(id) {
+            Some(LibraryObject::Track(t)) => tracks.push(t.id.clone()),
+            Some(LibraryObject::Container(c)) => tracks.extend(collect_track_ids(library, &c.id)),
+            None => {}
+        }
+    }
+    tracks
 }
 
 // ── REST Handlers ──
@@ -183,16 +232,31 @@ pub async fn get_playlist(
     let playlist = state.playlists.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
     let track_ids = state.playlists.get_track_ids(id).await;
 
-    let tracks: Vec<Value> = track_ids
-        .iter()
-        .enumerate()
-        .map(|(pos, tid)| {
-            json!({
-                "track_id": tid,
-                "position": pos,
+    let tracks: Vec<Value> = {
+        let library = state.library.read();
+        track_ids
+            .iter()
+            .enumerate()
+            .map(|(pos, tid)| match library.get(tid) {
+                Some(LibraryObject::Track(t)) => json!({
+                    "track_id": tid,
+                    "position": pos,
+                    "title": t.meta.title,
+                    "artist": t.meta.artist,
+                    "album": t.meta.album,
+                    "duration": t.meta.duration.map(|d| {
+                        let secs = d.as_secs();
+                        format!("{}:{:02}", secs / 60, secs % 60)
+                    }),
+                }),
+                _ => json!({
+                    "track_id": tid,
+                    "position": pos,
+                    "missing": true,
+                }),
             })
-        })
-        .collect();
+            .collect()
+    };
 
     Ok(Json(json!({
         "id": playlist.id,
@@ -214,11 +278,49 @@ pub async fn create_playlist(
         .await
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if !body.track_ids.is_empty() {
-        state.playlists.add_tracks(id, &body.track_ids).await;
+    let track_ids = {
+        let library = state.library.read();
+        expand_track_ids(&library, &body.track_ids)
+    };
+    if !track_ids.is_empty() {
+        state.playlists.add_tracks(id, &track_ids).await;
     }
 
-    Ok(Json(json!({ "id": id, "name": body.name })))
+    Ok(Json(
+        json!({ "id": id, "name": body.name, "track_count": track_ids.len() }),
+    ))
+}
+
+/// Append tracks to a playlist. Container IDs (albums, artists, genres) are
+/// expanded to their tracks, so an album can be added in one call.
+pub async fn add_playlist_tracks(
+    State(state): State<ControlState>,
+    Path(id): Path<i64>,
+    Json(body): Json<AddPlaylistTracksRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    state.playlists.get(id).await.ok_or(StatusCode::NOT_FOUND)?;
+
+    let track_ids = {
+        let library = state.library.read();
+        expand_track_ids(&library, &body.track_ids)
+    };
+    if track_ids.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    state.playlists.add_tracks(id, &track_ids).await;
+    Ok(Json(json!({ "added": track_ids.len() })))
+}
+
+pub async fn remove_playlist_track(
+    State(state): State<ControlState>,
+    Path((id, position)): Path<(i64, i64)>,
+) -> StatusCode {
+    if state.playlists.remove_track(id, position).await {
+        StatusCode::OK
+    } else {
+        StatusCode::NOT_FOUND
+    }
 }
 
 pub async fn delete_playlist(State(state): State<ControlState>, Path(id): Path<i64>) -> StatusCode {

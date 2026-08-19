@@ -3,7 +3,18 @@ import { api, type LibraryItem } from "../../api/client";
 import { useDeviceStore } from "../../stores/deviceStore";
 import { usePlayerStore } from "../../stores/playerStore";
 import { TrackEditor } from "./TrackEditor";
-import { ChevronRightIcon, PlayIcon, PlusIcon, FolderIcon, EditIcon } from "./LibraryIcons";
+import { AddToPlaylistDialog } from "../playlists/AddToPlaylistDialog";
+import {
+  ChevronRightIcon,
+  PlayIcon,
+  PlusIcon,
+  FolderIcon,
+  EditIcon,
+  ListPlusIcon,
+} from "./LibraryIcons";
+
+const ROW_ICON_BUTTON =
+  "shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100";
 
 function containerSubtitle(item: LibraryItem): string {
   if (item.artist && item.album) {
@@ -36,11 +47,13 @@ function ContainerRow({
   item,
   onSelect,
   onPlayAll,
+  onAddToPlaylist,
   showPlayAll,
 }: {
   item: LibraryItem;
   onSelect: () => void;
   onPlayAll: () => void;
+  onAddToPlaylist: () => void;
   showPlayAll: boolean;
 }) {
   return (
@@ -57,12 +70,11 @@ function ContainerRow({
         </div>
         <ChevronRightIcon className="text-[var(--color-text-secondary)] shrink-0" />
       </button>
+      <button onClick={onAddToPlaylist} className={ROW_ICON_BUTTON} title="Add to playlist">
+        <ListPlusIcon />
+      </button>
       {showPlayAll && (
-        <button
-          onClick={onPlayAll}
-          className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
-          title="Play all"
-        >
+        <button onClick={onPlayAll} className={ROW_ICON_BUTTON} title="Play all">
           <PlayIcon />
         </button>
       )}
@@ -75,11 +87,13 @@ function TrackRow({
   onPlay,
   onEdit,
   onAddToQueue,
+  onAddToPlaylist,
 }: {
   item: LibraryItem;
   onPlay: () => void;
   onEdit: () => void;
   onAddToQueue: () => void;
+  onAddToPlaylist: () => void;
 }) {
   return (
     <>
@@ -106,39 +120,23 @@ function TrackRow({
       {item.duration && (
         <span className="text-xs text-[var(--color-text-secondary)] shrink-0">{item.duration}</span>
       )}
-      <button
-        onClick={onEdit}
-        className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
-        title="Edit metadata"
-      >
+      <button onClick={onEdit} className={ROW_ICON_BUTTON} title="Edit metadata">
         <EditIcon />
       </button>
-      <button
-        onClick={onAddToQueue}
-        className="shrink-0 p-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors opacity-0 group-hover:opacity-100"
-        title="Add to queue"
-      >
+      <button onClick={onAddToPlaylist} className={ROW_ICON_BUTTON} title="Add to playlist">
+        <ListPlusIcon />
+      </button>
+      <button onClick={onAddToQueue} className={ROW_ICON_BUTTON} title="Add to queue">
         <PlusIcon />
       </button>
     </>
   );
 }
 
-export function ItemList({
-  items,
-  onSelect,
-  containerId,
-  onPlay,
-}: {
-  items: LibraryItem[];
-  onSelect: (item: LibraryItem) => void;
-  containerId: string;
-  onPlay?: () => void;
-}) {
+function useItemActions(containerId: string, onPlay?: () => void) {
   const activeDeviceId = useDeviceStore((s) => s.activeDeviceId);
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack);
   const setPlaying = usePlayerStore((s) => s.setPlaying);
-  const [editingTrack, setEditingTrack] = useState<LibraryItem | null>(null);
 
   const handleTrackPlay = async (item: LibraryItem) => {
     if (!activeDeviceId) return;
@@ -167,6 +165,28 @@ export function ItemList({
     onPlay?.();
   };
 
+  return { handleTrackPlay, handleAddToQueue, handlePlayContainer };
+}
+
+export function ItemList({
+  items,
+  onSelect,
+  containerId,
+  onPlay,
+}: {
+  items: LibraryItem[];
+  onSelect: (item: LibraryItem) => void;
+  containerId: string;
+  onPlay?: () => void;
+}) {
+  const activeDeviceId = useDeviceStore((s) => s.activeDeviceId);
+  const [editingTrack, setEditingTrack] = useState<LibraryItem | null>(null);
+  const [playlistTarget, setPlaylistTarget] = useState<LibraryItem | null>(null);
+  const { handleTrackPlay, handleAddToQueue, handlePlayContainer } = useItemActions(
+    containerId,
+    onPlay
+  );
+
   return (
     <>
       <div className="space-y-0.5">
@@ -180,6 +200,7 @@ export function ItemList({
                 item={item}
                 onSelect={() => onSelect(item)}
                 onPlayAll={() => handlePlayContainer(item)}
+                onAddToPlaylist={() => setPlaylistTarget(item)}
                 showPlayAll={!!activeDeviceId}
               />
             ) : (
@@ -188,12 +209,20 @@ export function ItemList({
                 onPlay={() => handleTrackPlay(item)}
                 onEdit={() => setEditingTrack(item)}
                 onAddToQueue={() => handleAddToQueue(item)}
+                onAddToPlaylist={() => setPlaylistTarget(item)}
               />
             )}
           </div>
         ))}
       </div>
       {editingTrack && <TrackEditor track={editingTrack} onClose={() => setEditingTrack(null)} />}
+      {playlistTarget && (
+        <AddToPlaylistDialog
+          trackIds={[playlistTarget.id]}
+          label={playlistTarget.title ?? "Selection"}
+          onClose={() => setPlaylistTarget(null)}
+        />
+      )}
     </>
   );
 }

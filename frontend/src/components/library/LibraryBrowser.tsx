@@ -6,7 +6,15 @@ import { usePlayerStore } from "../../stores/playerStore";
 import { LIBRARY_ROOT, type BreadcrumbEntry } from "../../stores/uiStore";
 import { BulkAlbumArtistDialog, RenameArtistDialog } from "./TrackEditor";
 import { ItemList } from "./LibraryItemList";
-import { SearchIcon, XIcon, ChevronLeftIcon, PlayIcon, EditIcon } from "./LibraryIcons";
+import { AddToPlaylistDialog } from "../playlists/AddToPlaylistDialog";
+import {
+  SearchIcon,
+  XIcon,
+  ChevronLeftIcon,
+  PlayIcon,
+  EditIcon,
+  ListPlusIcon,
+} from "./LibraryIcons";
 
 const CATEGORY_ICONS: Record<string, string> = {
   Artists: "\uD83C\uDFA4",
@@ -193,6 +201,7 @@ function ContainerHeaderActions({
   onEditAlbumArtist,
   onRename,
   onPlayAll,
+  onAddToPlaylist,
 }: {
   isAlbum: boolean;
   isArtist: boolean;
@@ -200,9 +209,18 @@ function ContainerHeaderActions({
   onEditAlbumArtist: () => void;
   onRename: () => void;
   onPlayAll: () => void;
+  onAddToPlaylist: () => void;
 }) {
   return (
     <div className="flex items-center gap-1.5 shrink-0">
+      <button
+        onClick={onAddToPlaylist}
+        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-white/10 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+        title="Add all tracks to a playlist"
+      >
+        <ListPlusIcon />
+        Playlist
+      </button>
       {(isAlbum || isArtist) && (
         <button
           onClick={onEditAlbumArtist}
@@ -242,6 +260,7 @@ function ContainerHeader({ info, onPlay }: { info: ContainerInfo; onPlay?: () =>
   const setPlaying = usePlayerStore((s) => s.setPlaying);
   const [showAlbumArtist, setShowAlbumArtist] = useState(false);
   const [showRename, setShowRename] = useState(false);
+  const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
 
   const isAlbum = info.class === "object.container.album.musicAlbum";
   const isArtist = info.class === "object.container.person.musicArtist";
@@ -266,8 +285,16 @@ function ContainerHeader({ info, onPlay }: { info: ContainerInfo; onPlay?: () =>
           onEditAlbumArtist={() => setShowAlbumArtist(true)}
           onRename={() => setShowRename(true)}
           onPlayAll={handleQueueAll}
+          onAddToPlaylist={() => setShowAddToPlaylist(true)}
         />
       </div>
+      {showAddToPlaylist && (
+        <AddToPlaylistDialog
+          trackIds={[info.id]}
+          label={info.album ?? info.artist ?? "Selection"}
+          onClose={() => setShowAddToPlaylist(false)}
+        />
+      )}
       {showAlbumArtist && (
         <BulkAlbumArtistDialog
           containerId={info.id}

@@ -9,7 +9,7 @@ Airwave — a monorepo for a WiiM audio ecosystem: a unified Rust server (DLNA m
 | Directory | Language | Purpose |
 |-----------|----------|---------|
 | `backend/` | Rust | Unified DLNA/UPnP MediaServer + control plane — SSDP, SOAP, HTTP streaming, device management, playback, queue/session engine, playlists, EQ, metadata editing, SSE |
-| `frontend/` | React/TypeScript (Vite, pnpm) | Mobile-first web UI — library browser, now playing, queue, device/group management, metadata editing |
+| `frontend/` | React/TypeScript (Vite, pnpm) | Mobile-first web UI — library browser, now playing, queue, playlists, device/group management, metadata editing |
 
 ## Build & Run
 
@@ -62,6 +62,7 @@ make ci
 - No database for library, no transcoding — files served as-is
 - `Arc<RwLock<Library>>` (parking_lot) — never hold read guard across await
 - Object IDs: `ar{n}` artists, `aa{n}` artist-albums, `av{n}` album-view, `gr{n}` genres, `t{n}` tracks
+- Playlists play through the session engine using the source ID `pl{n}` (not a library object)
 - Two device communication channels:
   - **UPnP SOAP** (port varies per device): AVTransport, RenderingControl, PlayQueue — used for playback control and state queries
   - **HTTPS API** (port 443, self-signed certs): EQ, source switching, multiroom grouping, device status — Linkplay proprietary `httpapi.asp?command=...`
@@ -69,7 +70,7 @@ make ci
 - Server-side queue engine with Poweramp-style shuffle/repeat modes
 - Session-based playback with group/track shuffle, gapless pre-fetch, auto-advance
 - SSE for real-time playback state + device change push to frontend
-- SQLite for playlists and preferences
+- SQLite for playlists and preferences; playlist writes accept container IDs and expand them to tracks
 - Metadata tag editing via lofty (ID3/Vorbis), with bulk operations and library rescan
 - Album art extraction with SQLite cache
 - SOAP retry with exponential backoff for transient network errors

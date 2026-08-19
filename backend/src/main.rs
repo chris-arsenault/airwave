@@ -262,6 +262,14 @@ async fn main() {
             "/playlists/{id}",
             get(control::playlists::get_playlist).delete(control::playlists::delete_playlist),
         )
+        .route(
+            "/playlists/{id}/tracks",
+            post(control::playlists::add_playlist_tracks),
+        )
+        .route(
+            "/playlists/{id}/tracks/{position}",
+            delete(control::playlists::remove_playlist_track),
+        )
         // Groups
         .route("/groups", post(control::groups::create_group))
         .route("/groups/{id}", delete(control::groups::dissolve_group))

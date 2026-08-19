@@ -8,6 +8,7 @@ interface NavItem {
 
 const items: NavItem[] = [
   { id: "library", label: "Library", icon: <LibraryIcon /> },
+  { id: "playlists", label: "Lists", icon: <PlaylistIcon /> },
   { id: "queue", label: "Queue", icon: <QueueIcon /> },
   { id: "devices", label: "Rooms", icon: <DevicesIcon /> },
   { id: "settings", label: "EQ", icon: <SettingsIcon /> },
@@ -49,6 +50,26 @@ function LibraryIcon() {
       strokeLinecap="round"
     >
       <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+    </svg>
+  );
+}
+
+function PlaylistIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <line x1="3" y1="6" x2="15" y2="6" />
+      <line x1="3" y1="12" x2="15" y2="12" />
+      <line x1="3" y1="18" x2="11" y2="18" />
+      <circle cx="18" cy="17" r="3" />
+      <line x1="21" y1="17" x2="21" y2="8" />
     </svg>
   );
 }

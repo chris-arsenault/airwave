@@ -11,8 +11,13 @@ use super::models::{
     QueueTrackResponse, RateTrackRequest, RepeatModeRequest, SeekRequest, SessionInfoResponse,
     SessionPlayRequest, ShuffleModeRequest,
 };
-use super::session::{PlaySession, RepeatMode, ShuffleMode};
+use super::session::{PlaySession, RepeatMode, SessionSource, ShuffleMode};
 use super::state::ControlState;
+
+/// Saved playlists are addressed as `pl{id}`; library object IDs never use that prefix.
+fn playlist_source_id(source_id: &str) -> Option<i64> {
+    source_id.strip_prefix("pl")?.parse().ok()
+}
 
 /// Resolve a target device ID to the master device for playback.
 /// If the target is a slave, routes to the master instead.
@@ -569,12 +574,45 @@ pub async fn session_play(
 ) -> Result<StatusCode, StatusCode> {
     let (target, device) = resolve_playback_target(&state, &target)?;
 
-    let session = {
-        let library = state.library.read();
-        PlaySession::new(&body.source_id, body.start_track_id.as_deref(), &library)
+    let session = match playlist_source_id(&body.source_id) {
+        Some(playlist_id) => {
+            let playlist = state
+                .playlists
+                .get(playlist_id)
+                .await
+                .ok_or(StatusCode::NOT_FOUND)?;
+            let track_ids = state.playlists.get_track_ids(playlist_id).await;
+            let source = SessionSource {
+                id: body.source_id.clone(),
+                label: playlist.name,
+                class: Some("object.container.playlistContainer".to_string()),
+                artist: None,
+                album: None,
+            };
+            let library = state.library.read();
+            let mut session = PlaySession::from_tracks(source, &track_ids, &library);
+            if let (Some(s), Some(start)) = (session.as_mut(), body.start_track_id.as_deref()) {
+                s.seek_to_track(start);
+            }
+            session
+        }
+        None => {
+            let library = state.library.read();
+            PlaySession::new(&body.source_id, body.start_track_id.as_deref(), &library)
+        }
     };
 
-    let session = session.ok_or(StatusCode::BAD_REQUEST)?;
+    let mut session = session.ok_or(StatusCode::BAD_REQUEST)?;
+
+    if let Some(mode) = body.shuffle {
+        let mode: ShuffleMode = serde_json::from_value(serde_json::Value::String(mode))
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+        session.set_shuffle(mode);
+        // Without an explicit start track, begin at the top of the new order.
+        if body.start_track_id.is_none() {
+            session.restart();
+        }
+    }
 
     let track_id = session
         .current_track_id()

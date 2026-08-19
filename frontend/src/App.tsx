@@ -9,6 +9,7 @@ import { BottomNav } from "./components/layout/BottomNav";
 import { Sidebar } from "./components/layout/Sidebar";
 import { NowPlaying } from "./components/player/NowPlaying";
 import { LibraryBrowser } from "./components/library/LibraryBrowser";
+import { PlaylistsView } from "./components/playlists/PlaylistsView";
 import { QueueView } from "./components/queue/QueueView";
 import { DeviceManager } from "./components/devices/DeviceManager";
 import { EQSettings } from "./components/devices/EQSettings";
@@ -23,6 +24,7 @@ const queryClient = new QueryClient();
 
 const DRAWER_TITLES: Record<string, string> = {
   library: "Library",
+  playlists: "Playlists",
   queue: "Queue",
   devices: "Rooms",
   settings: "EQ",
@@ -32,6 +34,7 @@ function DrawerContent({ drawer, onClose }: { drawer: string; onClose: () => voi
   return (
     <>
       {drawer === "library" && <LibraryBrowser onPlay={onClose} />}
+      {drawer === "playlists" && <PlaylistsView onPlay={onClose} />}
       {drawer === "queue" && <QueueView />}
       {drawer === "devices" && <DeviceManager />}
       {drawer === "settings" && <EQSettings />}
